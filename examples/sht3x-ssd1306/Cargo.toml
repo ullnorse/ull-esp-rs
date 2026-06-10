@@ -1,0 +1,34 @@
+[package]
+name = "sht3x-ssd1306"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "sht3x-ssd1306"
+path = "src/main.rs"
+test = false
+bench = false
+
+[dependencies]
+embassy-embedded-hal.workspace = true
+embassy-executor.workspace = true
+embassy-net.workspace = true
+embassy-sync.workspace = true
+embassy-time.workspace = true
+embedded-graphics.workspace = true
+embedded-io-async.workspace = true
+esp-bootloader-esp-idf.workspace = true
+esp-hal.workspace = true
+esp-radio.workspace = true
+esp-rtos.workspace = true
+heapless.workspace = true
+log.workspace = true
+thiserror.workspace = true
+ull-esp-board-devkit-v1 = { path = "../../crates/ull-esp-board-devkit-v1" }
+ull-esp-support = { path = "../../crates/ull-esp-support" }
+ull-sht3x = { path = "../../../ull-drivers-rs/drivers/ull-sht3x", features = ["async"] }
+ull-ssd1306 = { path = "../../../ull-drivers-rs/drivers/ull-ssd1306", features = ["async", "graphics"] }
