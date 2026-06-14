@@ -7,7 +7,7 @@ use esp_hal::rng::Rng;
 use esp_radio::wifi::WifiController;
 use ull_esp_board_devkit_v1::Board;
 use ull_esp_platform::{SharedI2cBus, SharedI2cResources, WifiRunner, WifiStackResources};
-use ull_esp_platform::{i2c, runtime, wifi};
+use ull_esp_platform::{runtime, wifi};
 
 use crate::config;
 use crate::error::AppError;
@@ -44,11 +44,11 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
         pins: _pins,
     } = Board::init();
 
-    runtime::start(runtime_parts.timg0, runtime_parts.sw_interrupt);
+    runtime_parts.start();
 
-    let i2c = i2c::init_i2c(i2c0.controller, i2c0.pins.scl, i2c0.pins.sda)
+    let i2c_bus = i2c0
+        .into_shared_bus(&APP_RESOURCES.i2c_bus)
         .map_err(ull_esp_platform::EspError::from)?;
-    let i2c_bus = APP_RESOURCES.i2c_bus.init(i2c);
 
     let rng = Rng::new();
     let seed = ((rng.random() as u64) << 32) | rng.random() as u64;

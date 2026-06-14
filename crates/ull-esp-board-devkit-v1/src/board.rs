@@ -17,6 +17,28 @@ pub struct I2c0Parts {
     pub pins: I2c0Pins,
 }
 
+impl RuntimeParts {
+    pub fn start(self) {
+        ull_esp_platform::runtime::start(self.timg0, self.sw_interrupt);
+    }
+}
+
+impl I2c0Parts {
+    pub fn into_async(
+        self,
+    ) -> Result<ull_esp_platform::SharedI2c, esp_hal::i2c::master::ConfigError> {
+        ull_esp_platform::i2c::init_i2c(self.controller, self.pins.scl, self.pins.sda)
+    }
+
+    pub fn into_shared_bus(
+        self,
+        resources: &'static ull_esp_platform::SharedI2cResources,
+    ) -> Result<&'static ull_esp_platform::SharedI2cBus, esp_hal::i2c::master::ConfigError> {
+        let i2c = self.into_async()?;
+        Ok(resources.init(i2c))
+    }
+}
+
 impl Board {
     pub fn init() -> Self {
         Self::init_with_config(ull_esp_platform::runtime::max_clock_config())
