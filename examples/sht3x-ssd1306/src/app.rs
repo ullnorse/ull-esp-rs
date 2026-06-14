@@ -3,7 +3,6 @@ use embassy_executor::Spawner;
 use embassy_net::Stack;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
-use esp_hal::rng::Rng;
 use ull_esp_board_devkit_v1::Board;
 use ull_esp_platform::{runtime, SharedI2cBus};
 
@@ -32,15 +31,10 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
     runtime::init_default_heap();
 
     let mut board = Board::init();
-
-    let runtime_parts = board.take_runtime().expect("board runtime available during startup");
-    runtime_parts.start();
+    board.start_runtime()?;
 
     let i2c_bus = board.take_i2c0()?;
-
-    let rng = Rng::new();
-    let seed = ((rng.random() as u64) << 32) | rng.random() as u64;
-    let wifi = board.take_wifi_station_dhcp(spawner, seed, &config::wifi_config())?;
+    let wifi = board.take_wifi_station_dhcp(spawner, &config::wifi_config())?;
     let readings_config = config::readings_config()?;
 
     spawn_tasks(spawner, i2c_bus, wifi.stack(), readings_config)

@@ -18,7 +18,7 @@ pub enum AppError {
     HttpStatus(u16),
     #[error("invalid READINGS_PORT")]
     InvalidReadingsPort,
-    #[error("invalid READINGS_HOST, expected IPv4 address")]
+    #[error("invalid READINGS_HOST, expected IPv4 address like 192.168.1.10")]
     InvalidReadingsHost,
     #[error("failed to create {0} task")]
     TaskSpawn(&'static str),

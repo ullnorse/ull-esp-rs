@@ -3,6 +3,7 @@ use crate::pins::{BoardPins, I2c0Pins, StatusLedPin};
 use embassy_executor::Spawner;
 use embassy_net::Stack;
 use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::rng::Rng;
 use thiserror::Error;
 
 static I2C0_RESOURCES: ull_esp_platform::SharedI2cResources =
@@ -200,6 +201,11 @@ impl Board {
             .ok_or(BoardError::AlreadyTaken("runtime"))
     }
 
+    pub fn start_runtime(&mut self) -> Result<(), BoardError> {
+        self.take_runtime()?.start();
+        Ok(())
+    }
+
     pub fn take_i2c0_parts(&mut self) -> Result<I2c0Parts, BoardError> {
         self.i2c0.take().ok_or(BoardError::AlreadyTaken("i2c0"))
     }
@@ -223,10 +229,18 @@ impl Board {
     pub fn take_wifi_station_dhcp(
         &mut self,
         spawner: Spawner,
+        config: &ull_esp_platform::WifiConfig<'_>,
+    ) -> Result<WifiStation, BoardError> {
+        self.take_wifi_station_dhcp_with_seed(spawner, Self::wifi_seed(), config)
+    }
+
+    pub fn take_wifi_station_dhcp_with_seed(
+        &mut self,
+        spawner: Spawner,
         seed: u64,
         config: &ull_esp_platform::WifiConfig<'_>,
     ) -> Result<WifiStation, BoardError> {
-        self.take_wifi_station(
+        self.take_wifi_station_with_seed(
             spawner,
             seed,
             config,
@@ -235,6 +249,15 @@ impl Board {
     }
 
     pub fn take_wifi_station(
+        &mut self,
+        spawner: Spawner,
+        config: &ull_esp_platform::WifiConfig<'_>,
+        net_config: ull_esp_platform::StationNetworkConfig,
+    ) -> Result<WifiStation, BoardError> {
+        self.take_wifi_station_with_seed(spawner, Self::wifi_seed(), config, net_config)
+    }
+
+    pub fn take_wifi_station_with_seed(
         &mut self,
         spawner: Spawner,
         seed: u64,
@@ -266,6 +289,11 @@ impl Board {
 
     pub fn take_status_led(&mut self) -> Result<StatusLed, BoardError> {
         Ok(StatusLed::new(self.take_status_led_pin()?))
+    }
+
+    fn wifi_seed() -> u64 {
+        let rng = Rng::new();
+        ((rng.random() as u64) << 32) | rng.random() as u64
     }
 
     pub fn into_raw_parts(mut self) -> RawBoardParts {
