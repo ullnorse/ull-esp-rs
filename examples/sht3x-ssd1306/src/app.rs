@@ -42,7 +42,7 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
         wifi: wifi_device,
         i2c0,
         pins: _pins,
-    } = Board::init(runtime::max_clock_config());
+    } = Board::init();
 
     runtime::start(runtime_parts.timg0, runtime_parts.sw_interrupt);
 

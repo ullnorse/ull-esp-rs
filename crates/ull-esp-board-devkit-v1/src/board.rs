@@ -18,7 +18,11 @@ pub struct I2c0Parts {
 }
 
 impl Board {
-    pub fn init(config: esp_hal::Config) -> Self {
+    pub fn init() -> Self {
+        Self::init_with_config(ull_esp_platform::runtime::max_clock_config())
+    }
+
+    pub fn init_with_config(config: esp_hal::Config) -> Self {
         let peripherals = esp_hal::init(config);
         let esp_hal::peripherals::Peripherals {
             TIMG0: timg0,

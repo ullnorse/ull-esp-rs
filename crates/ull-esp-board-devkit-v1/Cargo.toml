@@ -20,3 +20,4 @@ workspace = true
 
 [dependencies]
 esp-hal.workspace = true
+ull-esp-platform = { path = "../ull-esp-platform" }
