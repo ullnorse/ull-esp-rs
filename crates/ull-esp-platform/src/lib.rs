@@ -4,7 +4,7 @@ extern crate alloc;
 
 pub use config::WifiConfig;
 pub use error::EspError;
-pub use i2c::{SharedI2c, SharedI2cBus, SharedI2cResources};
+pub use i2c::{I2cConfig, SharedI2c, SharedI2cBus, SharedI2cResources};
 pub use wifi::{WifiRunner, WifiStackParts, WifiStackResources};
 
 pub mod config;

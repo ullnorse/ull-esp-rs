@@ -31,14 +31,34 @@ impl I2c0Parts {
     pub fn into_async(
         self,
     ) -> Result<ull_esp_platform::SharedI2c, esp_hal::i2c::master::ConfigError> {
-        ull_esp_platform::i2c::init_i2c(self.controller, self.pins.scl, self.pins.sda)
+        self.into_async_with_config(ull_esp_platform::I2cConfig::default())
+    }
+
+    pub fn into_async_with_config(
+        self,
+        config: ull_esp_platform::I2cConfig,
+    ) -> Result<ull_esp_platform::SharedI2c, esp_hal::i2c::master::ConfigError> {
+        ull_esp_platform::i2c::init_i2c_with_config(
+            self.controller,
+            self.pins.scl,
+            self.pins.sda,
+            config,
+        )
     }
 
     pub fn into_shared_bus(
         self,
         resources: &'static ull_esp_platform::SharedI2cResources,
     ) -> Result<&'static ull_esp_platform::SharedI2cBus, esp_hal::i2c::master::ConfigError> {
-        let i2c = self.into_async()?;
+        self.into_shared_bus_with_config(resources, ull_esp_platform::I2cConfig::default())
+    }
+
+    pub fn into_shared_bus_with_config(
+        self,
+        resources: &'static ull_esp_platform::SharedI2cResources,
+        config: ull_esp_platform::I2cConfig,
+    ) -> Result<&'static ull_esp_platform::SharedI2cBus, esp_hal::i2c::master::ConfigError> {
+        let i2c = self.into_async_with_config(config)?;
         Ok(resources.init(i2c))
     }
 }
