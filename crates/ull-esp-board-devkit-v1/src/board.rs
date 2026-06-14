@@ -1,10 +1,14 @@
 use crate::pins::{BoardPins, I2c0Pins, StatusLedPin};
 
+use embassy_executor::Spawner;
+use embassy_net::Stack;
 use esp_hal::gpio::{Level, Output, OutputConfig};
 use thiserror::Error;
 
 static I2C0_RESOURCES: ull_esp_platform::SharedI2cResources =
     ull_esp_platform::SharedI2cResources::new();
+static WIFI_STACK_RESOURCES: ull_esp_platform::WifiStackResources<3> =
+    ull_esp_platform::WifiStackResources::new();
 
 pub struct RuntimeParts {
     pub timg0: esp_hal::peripherals::TIMG0<'static>,
@@ -17,6 +21,10 @@ pub enum BoardError {
     AlreadyTaken(&'static str),
     #[error("i2c init failed")]
     I2c(#[from] esp_hal::i2c::master::ConfigError),
+    #[error("wifi error: {0}")]
+    Wifi(#[from] ull_esp_platform::EspError),
+    #[error("failed to spawn {0} task")]
+    TaskSpawn(&'static str),
 }
 
 pub struct Board {
@@ -35,6 +43,10 @@ pub struct RawBoardParts {
 
 pub struct StatusLed {
     pin: Output<'static>,
+}
+
+pub struct WifiStation {
+    stack: Stack<'static>,
 }
 
 pub struct I2c0Parts {
@@ -139,6 +151,12 @@ impl StatusLed {
     }
 }
 
+impl WifiStation {
+    pub fn stack(&self) -> Stack<'static> {
+        self.stack
+    }
+}
+
 impl Board {
     pub fn init() -> Self {
         Self::init_with_config(ull_esp_platform::runtime::max_clock_config())
@@ -200,6 +218,43 @@ impl Board {
 
     pub fn take_wifi_parts(&mut self) -> Result<WifiParts, BoardError> {
         self.wifi.take().ok_or(BoardError::AlreadyTaken("wifi"))
+    }
+
+    pub fn take_wifi_station_dhcp(
+        &mut self,
+        spawner: Spawner,
+        seed: u64,
+        config: &ull_esp_platform::WifiConfig<'_>,
+    ) -> Result<WifiStation, BoardError> {
+        self.take_wifi_station(
+            spawner,
+            seed,
+            config,
+            ull_esp_platform::StationNetworkConfig::default(),
+        )
+    }
+
+    pub fn take_wifi_station(
+        &mut self,
+        spawner: Spawner,
+        seed: u64,
+        config: &ull_esp_platform::WifiConfig<'_>,
+        net_config: ull_esp_platform::StationNetworkConfig,
+    ) -> Result<WifiStation, BoardError> {
+        let mut wifi = self
+            .take_wifi_parts()?
+            .into_station(seed, &WIFI_STACK_RESOURCES, net_config)?;
+        ull_esp_platform::wifi::configure(&mut wifi.controller, config)?;
+
+        let connection = ull_esp_platform::wifi::connection_task(wifi.controller)
+            .map_err(|_| BoardError::TaskSpawn("wifi"))?;
+        spawner.spawn(connection);
+
+        let runner = ull_esp_platform::wifi::runner_task(wifi.runner)
+            .map_err(|_| BoardError::TaskSpawn("net"))?;
+        spawner.spawn(runner);
+
+        Ok(WifiStation { stack: wifi.stack })
     }
 
     pub fn take_status_led_pin(&mut self) -> Result<StatusLedPin, BoardError> {

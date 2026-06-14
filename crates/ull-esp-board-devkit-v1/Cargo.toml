@@ -19,6 +19,8 @@ bench = false
 workspace = true
 
 [dependencies]
+embassy-executor.workspace = true
+embassy-net.workspace = true
 esp-hal.workspace = true
 ull-esp-platform = { path = "../ull-esp-platform" }
 thiserror.workspace = true

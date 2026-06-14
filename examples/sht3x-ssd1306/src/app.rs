@@ -4,12 +4,8 @@ use embassy_net::Stack;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use esp_hal::rng::Rng;
-use esp_radio::wifi::WifiController;
 use ull_esp_board_devkit_v1::Board;
-use ull_esp_platform::{
-    SharedI2cBus, StationNetworkConfig, WifiRunner, WifiStackResources,
-};
-use ull_esp_platform::{runtime, wifi};
+use ull_esp_platform::{runtime, SharedI2cBus};
 
 use crate::config;
 use crate::error::AppError;
@@ -19,7 +15,6 @@ use crate::tasks::{display, http, sensor};
 pub(crate) struct AppResources {
     pub display_reading: Signal<CriticalSectionRawMutex, Reading>,
     pub wifi_reading: Signal<CriticalSectionRawMutex, Reading>,
-    pub wifi_stack: WifiStackResources<3>,
 }
 
 impl AppResources {
@@ -27,7 +22,6 @@ impl AppResources {
         Self {
             display_reading: Signal::new(),
             wifi_reading: Signal::new(),
-            wifi_stack: WifiStackResources::new(),
         }
     }
 }
@@ -46,29 +40,16 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
 
     let rng = Rng::new();
     let seed = ((rng.random() as u64) << 32) | rng.random() as u64;
-    let mut wifi_parts = board
-        .take_wifi_parts()
-        .expect("board wifi available during startup")
-        .into_station(seed, &APP_RESOURCES.wifi_stack, StationNetworkConfig::dhcpv4())?;
-    wifi::configure(&mut wifi_parts.controller, &config::wifi_config())?;
+    let wifi = board.take_wifi_station_dhcp(spawner, seed, &config::wifi_config())?;
     let readings_config = config::readings_config()?;
 
-    spawn_tasks(
-        spawner,
-        i2c_bus,
-        wifi_parts.controller,
-        wifi_parts.stack,
-        wifi_parts.runner,
-        readings_config,
-    )
+    spawn_tasks(spawner, i2c_bus, wifi.stack(), readings_config)
 }
 
 fn spawn_tasks(
     spawner: Spawner,
     i2c_bus: &'static SharedI2cBus,
-    controller: WifiController<'static>,
     stack: Stack<'static>,
-    runner: WifiRunner,
     readings_config: config::ReadingsConfig,
 ) -> Result<(), AppError> {
     let sensor =
@@ -78,12 +59,6 @@ fn spawn_tasks(
     let display = display::display_task(I2cDevice::new(i2c_bus))
         .map_err(|_| AppError::TaskSpawn("display"))?;
     spawner.spawn(display);
-
-    let wifi = wifi::connection_task(controller).map_err(|_| AppError::TaskSpawn("wifi"))?;
-    spawner.spawn(wifi);
-
-    let network = wifi::runner_task(runner).map_err(|_| AppError::TaskSpawn("net"))?;
-    spawner.spawn(network);
 
     let http = http::http_task(stack, readings_config).map_err(|_| AppError::TaskSpawn("http"))?;
     spawner.spawn(http);
