@@ -7,7 +7,7 @@ use esp_hal::rng::Rng;
 use esp_radio::wifi::WifiController;
 use ull_esp_board_devkit_v1::Board;
 use ull_esp_platform::{
-    SharedI2cBus, SharedI2cResources, StationNetworkConfig, WifiRunner, WifiStackResources,
+    SharedI2cBus, StationNetworkConfig, WifiRunner, WifiStackResources,
 };
 use ull_esp_platform::{runtime, wifi};
 
@@ -17,7 +17,6 @@ use crate::reading::Reading;
 use crate::tasks::{display, http, sensor};
 
 pub(crate) struct AppResources {
-    pub i2c_bus: SharedI2cResources,
     pub display_reading: Signal<CriticalSectionRawMutex, Reading>,
     pub wifi_reading: Signal<CriticalSectionRawMutex, Reading>,
     pub wifi_stack: WifiStackResources<3>,
@@ -26,7 +25,6 @@ pub(crate) struct AppResources {
 impl AppResources {
     const fn new() -> Self {
         Self {
-            i2c_bus: SharedI2cResources::new(),
             display_reading: Signal::new(),
             wifi_reading: Signal::new(),
             wifi_stack: WifiStackResources::new(),
@@ -44,11 +42,7 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
     let runtime_parts = board.take_runtime().expect("board runtime available during startup");
     runtime_parts.start();
 
-    let i2c_bus = board
-        .take_i2c0_parts()
-        .expect("board i2c0 available during startup")
-        .into_shared_bus(&APP_RESOURCES.i2c_bus)
-        .map_err(ull_esp_platform::EspError::from)?;
+    let i2c_bus = board.take_i2c0()?;
 
     let rng = Rng::new();
     let seed = ((rng.random() as u64) << 32) | rng.random() as u64;

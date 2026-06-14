@@ -3,6 +3,9 @@ use crate::pins::{BoardPins, I2c0Pins, StatusLedPin};
 use esp_hal::gpio::{Level, Output, OutputConfig};
 use thiserror::Error;
 
+static I2C0_RESOURCES: ull_esp_platform::SharedI2cResources =
+    ull_esp_platform::SharedI2cResources::new();
+
 pub struct RuntimeParts {
     pub timg0: esp_hal::peripherals::TIMG0<'static>,
     pub sw_interrupt: esp_hal::peripherals::SW_INTERRUPT<'static>,
@@ -12,6 +15,8 @@ pub struct RuntimeParts {
 pub enum BoardError {
     #[error("board resource already taken: {0}")]
     AlreadyTaken(&'static str),
+    #[error("i2c init failed")]
+    I2c(#[from] esp_hal::i2c::master::ConfigError),
 }
 
 pub struct Board {
@@ -179,6 +184,18 @@ impl Board {
 
     pub fn take_i2c0_parts(&mut self) -> Result<I2c0Parts, BoardError> {
         self.i2c0.take().ok_or(BoardError::AlreadyTaken("i2c0"))
+    }
+
+    pub fn take_i2c0(&mut self) -> Result<&'static ull_esp_platform::SharedI2cBus, BoardError> {
+        self.take_i2c0_with_config(ull_esp_platform::I2cConfig::default())
+    }
+
+    pub fn take_i2c0_with_config(
+        &mut self,
+        config: ull_esp_platform::I2cConfig,
+    ) -> Result<&'static ull_esp_platform::SharedI2cBus, BoardError> {
+        let i2c = self.take_i2c0_parts()?.into_async_with_config(config)?;
+        Ok(I2C0_RESOURCES.init(i2c))
     }
 
     pub fn take_wifi_parts(&mut self) -> Result<WifiParts, BoardError> {
