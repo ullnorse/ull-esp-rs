@@ -1,4 +1,4 @@
-use embassy_net::{Stack, StackResources};
+use embassy_net::{Config as NetConfig, Stack, StackResources, StaticConfigV4};
 use embassy_time::{Duration, Timer};
 use esp_hal::peripherals::WIFI;
 use esp_radio::wifi::{Interface as WifiDevice, WifiController};
@@ -8,6 +8,10 @@ use crate::config::{WifiConfig, station_wifi_configuration};
 use crate::error::EspError;
 
 pub type WifiRunner = embassy_net::Runner<'static, WifiDevice<'static>>;
+
+pub struct StationNetworkConfig {
+    stack: NetConfig,
+}
 
 pub struct WifiStackParts {
     pub controller: WifiController<'static>,
@@ -33,15 +37,36 @@ impl<const SOCKETS: usize> Default for WifiStackResources<SOCKETS> {
     }
 }
 
-pub fn init_station_dhcp<const SOCKETS: usize>(
+impl StationNetworkConfig {
+    pub fn new(stack: NetConfig) -> Self {
+        Self { stack }
+    }
+
+    pub fn dhcpv4() -> Self {
+        Self::new(NetConfig::dhcpv4(Default::default()))
+    }
+
+    pub fn ipv4_static(config: StaticConfigV4) -> Self {
+        Self::new(NetConfig::ipv4_static(config))
+    }
+}
+
+impl Default for StationNetworkConfig {
+    fn default() -> Self {
+        Self::dhcpv4()
+    }
+}
+
+pub fn init_station<const SOCKETS: usize>(
     wifi: WIFI<'static>,
     seed: u64,
     resources: &'static WifiStackResources<SOCKETS>,
+    config: StationNetworkConfig,
 ) -> Result<WifiStackParts, EspError> {
     let (controller, interfaces) = esp_radio::wifi::new(wifi, Default::default())?;
     let (stack, runner) = embassy_net::new(
         interfaces.station,
-        embassy_net::Config::dhcpv4(Default::default()),
+        config.stack,
         resources.stack.init(StackResources::new()),
         seed,
     );
@@ -51,6 +76,14 @@ pub fn init_station_dhcp<const SOCKETS: usize>(
         stack,
         runner,
     })
+}
+
+pub fn init_station_dhcp<const SOCKETS: usize>(
+    wifi: WIFI<'static>,
+    seed: u64,
+    resources: &'static WifiStackResources<SOCKETS>,
+) -> Result<WifiStackParts, EspError> {
+    init_station(wifi, seed, resources, StationNetworkConfig::default())
 }
 
 pub fn configure(

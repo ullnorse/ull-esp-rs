@@ -64,12 +64,25 @@ impl I2c0Parts {
 }
 
 impl WifiParts {
+    pub fn into_station<const SOCKETS: usize>(
+        self,
+        seed: u64,
+        resources: &'static ull_esp_platform::WifiStackResources<SOCKETS>,
+        config: ull_esp_platform::StationNetworkConfig,
+    ) -> Result<ull_esp_platform::WifiStackParts, ull_esp_platform::EspError> {
+        ull_esp_platform::wifi::init_station(self.peripheral, seed, resources, config)
+    }
+
     pub fn into_station_dhcp<const SOCKETS: usize>(
         self,
         seed: u64,
         resources: &'static ull_esp_platform::WifiStackResources<SOCKETS>,
     ) -> Result<ull_esp_platform::WifiStackParts, ull_esp_platform::EspError> {
-        ull_esp_platform::wifi::init_station_dhcp(self.peripheral, seed, resources)
+        self.into_station(
+            seed,
+            resources,
+            ull_esp_platform::StationNetworkConfig::default(),
+        )
     }
 }
 

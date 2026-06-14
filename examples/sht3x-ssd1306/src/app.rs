@@ -6,7 +6,9 @@ use embassy_sync::signal::Signal;
 use esp_hal::rng::Rng;
 use esp_radio::wifi::WifiController;
 use ull_esp_board_devkit_v1::Board;
-use ull_esp_platform::{SharedI2cBus, SharedI2cResources, WifiRunner, WifiStackResources};
+use ull_esp_platform::{
+    SharedI2cBus, SharedI2cResources, StationNetworkConfig, WifiRunner, WifiStackResources,
+};
 use ull_esp_platform::{runtime, wifi};
 
 use crate::config;
@@ -52,7 +54,11 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
 
     let rng = Rng::new();
     let seed = ((rng.random() as u64) << 32) | rng.random() as u64;
-    let mut wifi_parts = wifi.into_station_dhcp(seed, &APP_RESOURCES.wifi_stack)?;
+    let mut wifi_parts = wifi.into_station(
+        seed,
+        &APP_RESOURCES.wifi_stack,
+        StationNetworkConfig::dhcpv4(),
+    )?;
     wifi::configure(&mut wifi_parts.controller, &config::wifi_config())?;
     let readings_config = config::readings_config()?;
 
