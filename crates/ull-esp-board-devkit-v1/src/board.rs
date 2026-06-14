@@ -1,11 +1,26 @@
-use crate::pins::{BoardPins, I2c0Pins};
+use crate::pins::{BoardPins, I2c0Pins, StatusLedPin};
+
+use thiserror::Error;
 
 pub struct RuntimeParts {
     pub timg0: esp_hal::peripherals::TIMG0<'static>,
     pub sw_interrupt: esp_hal::peripherals::SW_INTERRUPT<'static>,
 }
 
+#[derive(Debug, Error)]
+pub enum BoardError {
+    #[error("board resource already taken: {0}")]
+    AlreadyTaken(&'static str),
+}
+
 pub struct Board {
+    runtime: Option<RuntimeParts>,
+    wifi: Option<WifiParts>,
+    i2c0: Option<I2c0Parts>,
+    pins: BoardPins,
+}
+
+pub struct RawBoardParts {
     pub runtime: RuntimeParts,
     pub wifi: WifiParts,
     pub i2c0: I2c0Parts,
@@ -105,19 +120,60 @@ impl Board {
         } = peripherals;
 
         Self {
-            runtime: RuntimeParts {
+            runtime: Some(RuntimeParts {
                 timg0,
                 sw_interrupt,
-            },
-            wifi: WifiParts { peripheral: wifi },
-            i2c0: I2c0Parts {
+            }),
+            wifi: Some(WifiParts { peripheral: wifi }),
+            i2c0: Some(I2c0Parts {
                 controller: i2c0,
                 pins: I2c0Pins {
                     scl: gpio22,
                     sda: gpio21,
                 },
+            }),
+            pins: BoardPins {
+                status_led: Some(gpio2),
             },
-            pins: BoardPins { status_led: gpio2 },
+        }
+    }
+
+    pub fn take_runtime(&mut self) -> Result<RuntimeParts, BoardError> {
+        self.runtime
+            .take()
+            .ok_or(BoardError::AlreadyTaken("runtime"))
+    }
+
+    pub fn take_i2c0_parts(&mut self) -> Result<I2c0Parts, BoardError> {
+        self.i2c0.take().ok_or(BoardError::AlreadyTaken("i2c0"))
+    }
+
+    pub fn take_wifi_parts(&mut self) -> Result<WifiParts, BoardError> {
+        self.wifi.take().ok_or(BoardError::AlreadyTaken("wifi"))
+    }
+
+    pub fn take_status_led_pin(&mut self) -> Result<StatusLedPin, BoardError> {
+        self.pins
+            .status_led
+            .take()
+            .ok_or(BoardError::AlreadyTaken("status_led"))
+    }
+
+    pub fn into_raw_parts(mut self) -> RawBoardParts {
+        RawBoardParts {
+            runtime: self
+                .runtime
+                .take()
+                .expect("runtime should exist until into_raw_parts"),
+            wifi: self
+                .wifi
+                .take()
+                .expect("wifi should exist until into_raw_parts"),
+            i2c0: self
+                .i2c0
+                .take()
+                .expect("i2c0 should exist until into_raw_parts"),
+            pins: self.pins,
         }
     }
 }

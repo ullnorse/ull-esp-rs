@@ -8,5 +8,5 @@ pub struct I2c0Pins {
 }
 
 pub struct BoardPins {
-    pub status_led: StatusLedPin,
+    pub status_led: Option<StatusLedPin>,
 }

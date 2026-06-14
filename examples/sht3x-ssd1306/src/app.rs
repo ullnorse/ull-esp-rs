@@ -39,26 +39,23 @@ pub(crate) static APP_RESOURCES: AppResources = AppResources::new();
 pub async fn run(spawner: Spawner) -> Result<(), AppError> {
     runtime::init_default_heap();
 
-    let Board {
-        runtime: runtime_parts,
-        wifi,
-        i2c0,
-        pins: _pins,
-    } = Board::init();
+    let mut board = Board::init();
 
+    let runtime_parts = board.take_runtime().expect("board runtime available during startup");
     runtime_parts.start();
 
-    let i2c_bus = i2c0
+    let i2c_bus = board
+        .take_i2c0_parts()
+        .expect("board i2c0 available during startup")
         .into_shared_bus(&APP_RESOURCES.i2c_bus)
         .map_err(ull_esp_platform::EspError::from)?;
 
     let rng = Rng::new();
     let seed = ((rng.random() as u64) << 32) | rng.random() as u64;
-    let mut wifi_parts = wifi.into_station(
-        seed,
-        &APP_RESOURCES.wifi_stack,
-        StationNetworkConfig::dhcpv4(),
-    )?;
+    let mut wifi_parts = board
+        .take_wifi_parts()
+        .expect("board wifi available during startup")
+        .into_station(seed, &APP_RESOURCES.wifi_stack, StationNetworkConfig::dhcpv4())?;
     wifi::configure(&mut wifi_parts.controller, &config::wifi_config())?;
     let readings_config = config::readings_config()?;
 
