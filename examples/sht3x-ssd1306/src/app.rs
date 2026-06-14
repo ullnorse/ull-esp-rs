@@ -39,7 +39,7 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
 
     let Board {
         runtime: runtime_parts,
-        wifi: wifi_device,
+        wifi,
         i2c0,
         pins: _pins,
     } = Board::init();
@@ -52,7 +52,7 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
 
     let rng = Rng::new();
     let seed = ((rng.random() as u64) << 32) | rng.random() as u64;
-    let mut wifi_parts = wifi::init_station_dhcp(wifi_device, seed, &APP_RESOURCES.wifi_stack)?;
+    let mut wifi_parts = wifi.into_station_dhcp(seed, &APP_RESOURCES.wifi_stack)?;
     wifi::configure(&mut wifi_parts.controller, &config::wifi_config())?;
     let readings_config = config::readings_config()?;
 

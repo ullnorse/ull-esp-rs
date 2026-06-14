@@ -7,7 +7,7 @@ pub struct RuntimeParts {
 
 pub struct Board {
     pub runtime: RuntimeParts,
-    pub wifi: esp_hal::peripherals::WIFI<'static>,
+    pub wifi: WifiParts,
     pub i2c0: I2c0Parts,
     pub pins: BoardPins,
 }
@@ -15,6 +15,10 @@ pub struct Board {
 pub struct I2c0Parts {
     pub controller: esp_hal::peripherals::I2C0<'static>,
     pub pins: I2c0Pins,
+}
+
+pub struct WifiParts {
+    pub peripheral: esp_hal::peripherals::WIFI<'static>,
 }
 
 impl RuntimeParts {
@@ -36,6 +40,16 @@ impl I2c0Parts {
     ) -> Result<&'static ull_esp_platform::SharedI2cBus, esp_hal::i2c::master::ConfigError> {
         let i2c = self.into_async()?;
         Ok(resources.init(i2c))
+    }
+}
+
+impl WifiParts {
+    pub fn into_station_dhcp<const SOCKETS: usize>(
+        self,
+        seed: u64,
+        resources: &'static ull_esp_platform::WifiStackResources<SOCKETS>,
+    ) -> Result<ull_esp_platform::WifiStackParts, ull_esp_platform::EspError> {
+        ull_esp_platform::wifi::init_station_dhcp(self.peripheral, seed, resources)
     }
 }
 
@@ -62,7 +76,7 @@ impl Board {
                 timg0,
                 sw_interrupt,
             },
-            wifi,
+            wifi: WifiParts { peripheral: wifi },
             i2c0: I2c0Parts {
                 controller: i2c0,
                 pins: I2c0Pins {
