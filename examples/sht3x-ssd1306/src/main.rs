@@ -27,7 +27,7 @@ pub extern "Rust" fn _esp_println_timestamp() -> u64 {
 
 #[esp_rtos::main]
 async fn main(spawner: Spawner) {
-    ull_esp_support::runtime::init_logger(log::LevelFilter::Info);
+    ull_esp_platform::runtime::init_logger(log::LevelFilter::Info);
 
     if let Err(err) = app::run(spawner).await {
         log::error!("{err}");

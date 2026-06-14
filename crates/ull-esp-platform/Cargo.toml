@@ -1,11 +1,11 @@
 [package]
-name = "ull-esp-support"
+name = "ull-esp-platform"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Reusable ESP32 runtime, I2C, and Wi-Fi support for Embassy-based projects"
+description = "Reusable ESP32 platform mechanics for Embassy-based projects"
 categories = ["embedded", "hardware-support", "no-std"]
 keywords = ["esp32", "embassy", "wifi", "embedded"]
 

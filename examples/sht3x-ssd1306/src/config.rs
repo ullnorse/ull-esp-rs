@@ -16,8 +16,8 @@ pub struct ReadingsConfig {
     pub port: u16,
 }
 
-pub fn wifi_config() -> ull_esp_support::config::WifiConfig<'static> {
-    ull_esp_support::config::WifiConfig::new(WIFI_SSID, WIFI_PASSWORD)
+pub fn wifi_config() -> ull_esp_platform::config::WifiConfig<'static> {
+    ull_esp_platform::config::WifiConfig::new(WIFI_SSID, WIFI_PASSWORD)
 }
 
 pub fn readings_config() -> Result<ReadingsConfig, AppError> {

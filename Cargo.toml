@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/ull-esp-support",
+    "crates/ull-esp-platform",
     "crates/ull-esp-board-devkit-v1",
     "examples/sht3x-ssd1306",
 ]

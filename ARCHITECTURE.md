@@ -66,7 +66,7 @@ Reusable ESP32 stack mechanics.
 This layer is board-agnostic. It should know how the ESP stack works, not what
 physical board is attached.
 
-`ull-esp-support` should be renamed to `ull-esp-platform` to reflect this role.
+`ull-esp-platform` is the crate that should own this role.
 
 ### Board
 
@@ -122,7 +122,7 @@ When deciding where code belongs, ask one question:
 
 ## Implications For This Repo
 
-1. `ull-esp-support` should become `ull-esp-platform`
+1. `ull-esp-platform` is the ESP stack crate for this repo
 2. `ull-esp-board-devkit-v1` should become a real BSP crate
 3. board crates may compose platform defaults, while still exposing raw parts
 4. examples should keep product policy and task topology

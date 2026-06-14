@@ -16,7 +16,7 @@ use crate::app::APP_RESOURCES;
 
 #[embassy_executor::task]
 pub async fn display_task(
-    i2c: I2cDevice<'static, CriticalSectionRawMutex, ull_esp_support::i2c::SharedI2c>,
+    i2c: I2cDevice<'static, CriticalSectionRawMutex, ull_esp_platform::i2c::SharedI2c>,
 ) {
     let mut display =
         Ssd1306::new(i2c, DisplaySize128x64, Rotation::Rotate180).into_buffered_graphics_mode();

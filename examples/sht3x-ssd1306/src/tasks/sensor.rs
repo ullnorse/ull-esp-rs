@@ -8,7 +8,7 @@ use crate::reading::Reading;
 
 #[embassy_executor::task]
 pub async fn sensor_task(
-    i2c: I2cDevice<'static, CriticalSectionRawMutex, ull_esp_support::i2c::SharedI2c>,
+    i2c: I2cDevice<'static, CriticalSectionRawMutex, ull_esp_platform::i2c::SharedI2c>,
 ) {
     let mut delay = Delay;
     let mut sensor = Sht3x::with_address(i2c, Address::DEFAULT);

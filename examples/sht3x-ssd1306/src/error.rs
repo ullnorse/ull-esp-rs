@@ -23,5 +23,5 @@ pub enum AppError {
     #[error("failed to create {0} task")]
     TaskSpawn(&'static str),
     #[error(transparent)]
-    Esp(#[from] ull_esp_support::error::EspError),
+    Esp(#[from] ull_esp_platform::error::EspError),
 }

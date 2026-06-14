@@ -29,6 +29,6 @@ heapless.workspace = true
 log.workspace = true
 thiserror.workspace = true
 ull-esp-board-devkit-v1 = { path = "../../crates/ull-esp-board-devkit-v1" }
-ull-esp-support = { path = "../../crates/ull-esp-support" }
+ull-esp-platform = { path = "../../crates/ull-esp-platform" }
 ull-sht3x = { path = "../../../ull-drivers-rs/drivers/ull-sht3x", features = ["async"] }
 ull-ssd1306 = { path = "../../../ull-drivers-rs/drivers/ull-ssd1306", features = ["async", "graphics"] }
