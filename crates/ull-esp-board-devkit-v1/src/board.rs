@@ -1,5 +1,6 @@
 use crate::pins::{BoardPins, I2c0Pins, StatusLedPin};
 
+use esp_hal::gpio::{Level, Output, OutputConfig};
 use thiserror::Error;
 
 pub struct RuntimeParts {
@@ -25,6 +26,10 @@ pub struct RawBoardParts {
     pub wifi: WifiParts,
     pub i2c0: I2c0Parts,
     pub pins: BoardPins,
+}
+
+pub struct StatusLed {
+    pin: Output<'static>,
 }
 
 pub struct I2c0Parts {
@@ -101,6 +106,34 @@ impl WifiParts {
     }
 }
 
+impl StatusLed {
+    fn new(pin: StatusLedPin) -> Self {
+        Self {
+            pin: Output::new(pin, Self::off_level(), OutputConfig::default()),
+        }
+    }
+
+    pub fn on(&mut self) {
+        self.pin.set_level(Self::on_level());
+    }
+
+    pub fn off(&mut self) {
+        self.pin.set_level(Self::off_level());
+    }
+
+    pub fn toggle(&mut self) {
+        self.pin.toggle();
+    }
+
+    const fn on_level() -> Level {
+        Level::High
+    }
+
+    const fn off_level() -> Level {
+        Level::Low
+    }
+}
+
 impl Board {
     pub fn init() -> Self {
         Self::init_with_config(ull_esp_platform::runtime::max_clock_config())
@@ -157,6 +190,10 @@ impl Board {
             .status_led
             .take()
             .ok_or(BoardError::AlreadyTaken("status_led"))
+    }
+
+    pub fn take_status_led(&mut self) -> Result<StatusLed, BoardError> {
+        Ok(StatusLed::new(self.take_status_led_pin()?))
     }
 
     pub fn into_raw_parts(mut self) -> RawBoardParts {
