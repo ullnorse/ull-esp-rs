@@ -8,7 +8,6 @@ use crate::pins::{BoardPins, I2c0Pins};
 use esp_hal::rng::Rng;
 
 pub use error::BoardError;
-pub use i2c::I2c0Parts;
 pub use led::StatusLed;
 pub use wifi::{WifiParts, WifiStation};
 
@@ -20,15 +19,8 @@ pub struct RuntimeParts {
 pub struct Board {
     runtime: Option<RuntimeParts>,
     wifi: Option<WifiParts>,
-    i2c0: Option<I2c0Parts>,
+    i2c0: Option<i2c::I2c0Parts>,
     pins: BoardPins,
-}
-
-pub struct RawBoardParts {
-    pub runtime: RuntimeParts,
-    pub wifi: WifiParts,
-    pub i2c0: I2c0Parts,
-    pub pins: BoardPins,
 }
 
 impl RuntimeParts {
@@ -61,7 +53,7 @@ impl Board {
                 sw_interrupt,
             }),
             wifi: Some(WifiParts { peripheral: wifi }),
-            i2c0: Some(I2c0Parts {
+            i2c0: Some(i2c::I2c0Parts {
                 controller: i2c0,
                 pins: I2c0Pins {
                     scl: gpio22,
@@ -88,23 +80,5 @@ impl Board {
     fn wifi_seed() -> u64 {
         let rng = Rng::new();
         ((rng.random() as u64) << 32) | rng.random() as u64
-    }
-
-    pub fn into_raw_parts(mut self) -> RawBoardParts {
-        RawBoardParts {
-            runtime: self
-                .runtime
-                .take()
-                .expect("runtime should exist until into_raw_parts"),
-            wifi: self
-                .wifi
-                .take()
-                .expect("wifi should exist until into_raw_parts"),
-            i2c0: self
-                .i2c0
-                .take()
-                .expect("i2c0 should exist until into_raw_parts"),
-            pins: self.pins,
-        }
     }
 }

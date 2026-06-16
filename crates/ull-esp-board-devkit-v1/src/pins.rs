@@ -1,12 +1,12 @@
-pub type StatusLedPin = esp_hal::peripherals::GPIO2<'static>;
-pub type I2c0SclPin = esp_hal::peripherals::GPIO22<'static>;
-pub type I2c0SdaPin = esp_hal::peripherals::GPIO21<'static>;
+pub(crate) type StatusLedPin = esp_hal::peripherals::GPIO2<'static>;
+pub(crate) type I2c0SclPin = esp_hal::peripherals::GPIO22<'static>;
+pub(crate) type I2c0SdaPin = esp_hal::peripherals::GPIO21<'static>;
 
-pub struct I2c0Pins {
-    pub scl: I2c0SclPin,
-    pub sda: I2c0SdaPin,
+pub(crate) struct I2c0Pins {
+    pub(crate) scl: I2c0SclPin,
+    pub(crate) sda: I2c0SdaPin,
 }
 
-pub struct BoardPins {
-    pub status_led: Option<StatusLedPin>,
+pub(crate) struct BoardPins {
+    pub(crate) status_led: Option<StatusLedPin>,
 }

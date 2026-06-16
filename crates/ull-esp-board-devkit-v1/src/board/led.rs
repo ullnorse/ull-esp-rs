@@ -37,14 +37,12 @@ impl StatusLed {
 }
 
 impl Board {
-    pub fn take_status_led_pin(&mut self) -> Result<StatusLedPin, BoardError> {
-        self.pins
+    pub fn take_status_led(&mut self) -> Result<StatusLed, BoardError> {
+        let pin = self
+            .pins
             .status_led
             .take()
-            .ok_or(BoardError::AlreadyTaken("status_led"))
-    }
-
-    pub fn take_status_led(&mut self) -> Result<StatusLed, BoardError> {
-        Ok(StatusLed::new(self.take_status_led_pin()?))
+            .ok_or(BoardError::AlreadyTaken("status_led"))?;
+        Ok(StatusLed::new(pin))
     }
 }

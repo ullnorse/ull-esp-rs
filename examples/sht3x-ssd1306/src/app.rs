@@ -33,7 +33,7 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
     let mut board = Board::init();
     board.start_runtime()?;
 
-    let i2c_bus = board.take_i2c0()?;
+    let i2c_bus = board.take_i2c0_shared()?;
     let wifi = board.take_wifi_station_dhcp(spawner, &config::wifi_config())?;
     let readings_config = config::readings_config()?;
 
