@@ -4,7 +4,7 @@ use embassy_net::Stack;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use ull_esp_board_devkit_v1::Board;
-use ull_esp_platform::{runtime, SharedI2cBus};
+use ull_esp_platform::{SharedI2cBus, runtime};
 
 use crate::config;
 use crate::error::AppError;

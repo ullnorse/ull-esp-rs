@@ -1,9 +1,11 @@
 mod error;
 mod i2c;
 mod led;
+mod spi;
+mod uart;
 mod wifi;
 
-use crate::pins::{BoardPins, I2c0Pins};
+use crate::pins::{BoardPins, I2c0Pins, Spi2Pins, Uart2Pins};
 
 use esp_hal::rng::Rng;
 
@@ -20,6 +22,8 @@ pub struct Board {
     runtime: Option<RuntimeParts>,
     wifi: Option<WifiParts>,
     i2c0: Option<i2c::I2c0Parts>,
+    spi2: Option<spi::Spi2Parts>,
+    uart2: Option<uart::Uart2Parts>,
     pins: BoardPins,
 }
 
@@ -40,8 +44,16 @@ impl Board {
             TIMG0: timg0,
             SW_INTERRUPT: sw_interrupt,
             I2C0: i2c0,
+            SPI2: spi2,
+            UART2: uart2,
             GPIO22: gpio22,
             GPIO21: gpio21,
+            GPIO18: gpio18,
+            GPIO19: gpio19,
+            GPIO23: gpio23,
+            GPIO5: gpio5,
+            GPIO17: gpio17,
+            GPIO16: gpio16,
             GPIO2: gpio2,
             WIFI: wifi,
             ..
@@ -60,8 +72,24 @@ impl Board {
                     sda: gpio21,
                 },
             }),
+            spi2: Some(spi::Spi2Parts {
+                controller: spi2,
+                pins: Spi2Pins {
+                    sck: gpio18,
+                    miso: gpio19,
+                    mosi: gpio23,
+                },
+            }),
+            uart2: Some(uart::Uart2Parts {
+                controller: uart2,
+                pins: Uart2Pins {
+                    tx: gpio17,
+                    rx: gpio16,
+                },
+            }),
             pins: BoardPins {
                 status_led: Some(gpio2),
+                spi2_cs: Some(gpio5),
             },
         }
     }

@@ -1,0 +1,39 @@
+use crate::pins::Uart2Pins;
+
+use esp_hal::{
+    Async,
+    uart::{Config, Uart},
+};
+
+use super::{Board, BoardError};
+
+pub(crate) struct Uart2Parts {
+    pub(crate) controller: esp_hal::peripherals::UART2<'static>,
+    pub(crate) pins: Uart2Pins,
+}
+
+impl Uart2Parts {
+    fn into_async_with_config(
+        self,
+        config: Config,
+    ) -> Result<Uart<'static, Async>, esp_hal::uart::ConfigError> {
+        Ok(Uart::new(self.controller, config)?
+            .with_tx(self.pins.tx)
+            .with_rx(self.pins.rx)
+            .into_async())
+    }
+}
+
+impl Board {
+    pub fn take_uart2(&mut self) -> Result<Uart<'static, Async>, BoardError> {
+        self.take_uart2_with_config(Config::default())
+    }
+
+    pub fn take_uart2_with_config(
+        &mut self,
+        config: Config,
+    ) -> Result<Uart<'static, Async>, BoardError> {
+        let parts = self.uart2.take().ok_or(BoardError::AlreadyTaken("uart2"))?;
+        Ok(parts.into_async_with_config(config)?)
+    }
+}

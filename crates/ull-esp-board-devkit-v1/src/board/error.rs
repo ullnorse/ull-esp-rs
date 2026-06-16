@@ -6,6 +6,10 @@ pub enum BoardError {
     AlreadyTaken(&'static str),
     #[error("i2c init failed")]
     I2c(#[from] esp_hal::i2c::master::ConfigError),
+    #[error("spi init failed: {0}")]
+    Spi(#[from] esp_hal::spi::master::ConfigError),
+    #[error("uart init failed: {0}")]
+    Uart(#[from] esp_hal::uart::ConfigError),
     #[error("wifi error: {0}")]
     Wifi(#[from] ull_esp_platform::EspError),
     #[error("failed to spawn {0} task")]
