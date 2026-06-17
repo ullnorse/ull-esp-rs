@@ -2,7 +2,7 @@
 
 Personal ESP32 support workspace for `esp-hal` + `esp-rtos` + `embassy` projects.
 
-For the current design direction and migration notes, see [`CONTEXT.md`](./CONTEXT.md).
+For the current design direction, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 This repository sits between app code and device drivers:
 
