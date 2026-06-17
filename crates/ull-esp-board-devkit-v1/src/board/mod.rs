@@ -12,7 +12,7 @@ use esp_hal::rng::Rng;
 
 pub use error::BoardError;
 pub use led::StatusLed;
-pub use wifi::{WifiParts, WifiStation};
+pub use wifi::WifiStation;
 
 pub struct RuntimeParts {
     pub timg0: esp_hal::peripherals::TIMG0<'static>,
@@ -21,7 +21,7 @@ pub struct RuntimeParts {
 
 pub struct Board {
     runtime: Option<RuntimeParts>,
-    wifi: Option<WifiParts>,
+    wifi: Option<wifi::WifiParts>,
     i2c0: Option<i2c::I2c0Parts>,
     spi2: Option<spi::Spi2Parts>,
     uart2: Option<uart::Uart2Parts>,
@@ -65,7 +65,7 @@ impl Board {
                 timg0,
                 sw_interrupt,
             }),
-            wifi: Some(WifiParts { peripheral: wifi }),
+            wifi: Some(wifi::WifiParts { peripheral: wifi }),
             i2c0: Some(i2c::I2c0Parts {
                 controller: i2c0,
                 pins: I2c0Pins {

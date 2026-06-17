@@ -34,7 +34,7 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
     board.start_runtime()?;
 
     let i2c_bus = board.take_i2c0_shared()?;
-    let wifi = board.take_wifi_station_dhcp(spawner, &config::wifi_config())?;
+    let wifi = board.take_wifi_station(spawner, &config::wifi_config())?;
     let readings_config = config::readings_config()?;
 
     spawn_tasks(spawner, i2c_bus, wifi.stack(), readings_config)
