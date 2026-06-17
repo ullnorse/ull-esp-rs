@@ -17,10 +17,12 @@ impl Uart2Parts {
         self,
         config: Config,
     ) -> Result<Uart<'static, Async>, esp_hal::uart::ConfigError> {
-        Ok(Uart::new(self.controller, config)?
-            .with_tx(self.pins.tx)
-            .with_rx(self.pins.rx)
-            .into_async())
+        ull_esp_platform::uart::init_uart_with_config(
+            self.controller,
+            self.pins.tx,
+            self.pins.rx,
+            config,
+        )
     }
 }
 

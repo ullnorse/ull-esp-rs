@@ -18,11 +18,13 @@ impl Spi2Parts {
         self,
         config: Config,
     ) -> Result<Spi<'static, Async>, esp_hal::spi::master::ConfigError> {
-        Ok(Spi::new(self.controller, config)?
-            .with_sck(self.pins.sck)
-            .with_miso(self.pins.miso)
-            .with_mosi(self.pins.mosi)
-            .into_async())
+        ull_esp_platform::spi::init_spi_with_config(
+            self.controller,
+            self.pins.sck,
+            self.pins.miso,
+            self.pins.mosi,
+            config,
+        )
     }
 }
 
