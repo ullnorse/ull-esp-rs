@@ -23,7 +23,7 @@ This repository sits between app code and device drivers:
 ```text
 ull-esp-rs/
 ├── crates/
-│   ├── ull-esp-support/
+│   ├── ull-esp-platform/
 │   └── ull-esp-board-devkit-v1/
 └── examples/
     └── sht3x-ssd1306/
@@ -31,30 +31,31 @@ ull-esp-rs/
 
 ## Crates
 
- - `ull-esp-support`: reusable runtime, I2C, and Wi-Fi setup for ESP32 projects using Embassy.
- - `ull-esp-board-devkit-v1`: HAL-only board mapping and raw parts for an ESP32 DevKit V1 style board.
+ - `ull-esp-platform`: reusable runtime, I2C, SPI, UART, and Wi-Fi helpers for ESP32 projects using Embassy.
+ - `ull-esp-board-devkit-v1`: ESP32 DevKit V1 board mapping and convenience helpers built on `ull-esp-platform`.
 
 ## API Direction
 
-The intended shape is explicit parts over framework-style wrappers. Board crates stay HAL-only and apps compose them with `ull-esp-support`:
+The intended shape is explicit parts over framework-style wrappers:
+
+- `ull-esp-platform` owns generic ESP bring-up under module-qualified APIs like `runtime`, `i2c`, `spi`, `uart`, `wifi`, `config`, and `error`.
+- `ull-esp-board-devkit-v1` owns DevKit V1 pin mapping and board-specific convenience composition on top of `ull-esp-platform`.
+
+Typical app code can stay on the board convenience path:
 
 ```rust
-let ull_esp_board_devkit_v1::Board {
-    runtime,
-    wifi,
-    i2c0,
-    pins: _pins,
-} = ull_esp_board_devkit_v1::Board::init(ull_esp_support::runtime::max_clock_config());
+let mut board = ull_esp_board_devkit_v1::Board::init();
+board.start_runtime()?;
 
-ull_esp_support::runtime::start(runtime.timg0, runtime.sw_interrupt);
+let i2c_bus = board.take_i2c0_shared()?;
+let spi = board.take_spi2()?;
+let uart = board.take_uart2()?;
 
-let i2c = ull_esp_support::i2c::init_i2c(i2c0.controller, i2c0.pins.scl, i2c0.pins.sda)?;
-let wifi = ull_esp_support::wifi::init_station_dhcp(wifi, seed, &WIFI_STACK_RESOURCES)?;
+let wifi_config = ull_esp_platform::config::WifiConfig::new("ssid", "password");
+let wifi = board.take_wifi_station(spawner, &wifi_config)?;
 ```
 
-The board crate exposes board-specific raw parts. The support crate turns those parts into reusable runtime services.
-
-Common support types are also re-exported from `ull_esp_support` so app code can usually import from the crate root instead of reaching into each module.
+Lower-level platform helpers remain available under module-qualified paths such as `ull_esp_platform::i2c::init_i2c`, `ull_esp_platform::spi::init_spi`, and `ull_esp_platform::uart::init_uart`.
 
 ## Examples
 
