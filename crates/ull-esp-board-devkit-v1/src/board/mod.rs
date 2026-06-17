@@ -7,6 +7,7 @@ mod wifi;
 
 use crate::pins::{BoardPins, I2c0Pins, Spi2Pins, Uart2Pins};
 
+use embassy_time::{Duration, Timer};
 use esp_hal::rng::Rng;
 
 pub use error::BoardError;
@@ -103,6 +104,14 @@ impl Board {
     pub fn start_runtime(&mut self) -> Result<(), BoardError> {
         self.take_runtime()?.start();
         Ok(())
+    }
+
+    pub async fn sleep(&self, duration: Duration) {
+        Timer::after(duration).await;
+    }
+
+    pub async fn sleep_ms(&self, millis: u64) {
+        self.sleep(Duration::from_millis(millis)).await;
     }
 
     fn wifi_seed() -> u64 {
