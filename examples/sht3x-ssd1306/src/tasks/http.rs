@@ -6,23 +6,21 @@ use embedded_io_async::Write as _;
 use heapless::String as HeaplessString;
 
 use crate::app::APP_RESOURCES;
-use crate::config::ReadingsConfig;
+use crate::app::{Reading, ReadingsConfig};
 use crate::error::AppError;
-use crate::reading::Reading;
-use crate::telemetry;
 
 #[embassy_executor::task]
 pub async fn http_task(stack: Stack<'static>, config: ReadingsConfig) {
     stack.wait_config_up().await;
     log::info!(
         "http publisher ready for http://{}:{}{}",
-        config.host,
+        config.server_addr,
         config.port,
         config.path
     );
 
     loop {
-        let reading = APP_RESOURCES.wifi_reading.wait().await;
+        let reading = APP_RESOURCES.publish_readings.receive().await;
 
         if !stack.is_config_up() {
             log::warn!("network config down, waiting for DHCP");
@@ -40,7 +38,7 @@ async fn post_reading(
     config: ReadingsConfig,
     reading: Reading,
 ) -> Result<(), AppError> {
-    let body = telemetry::json_body(reading)?;
+    let body = json_body(reading)?;
     let mut request: HeaplessString<384> = HeaplessString::new();
     let mut rx_buffer = [0u8; 1024];
     let mut tx_buffer = [0u8; 1024];
@@ -50,7 +48,7 @@ async fn post_reading(
         request,
         "POST {} HTTP/1.1\r\nHost: {}:{}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
         config.path,
-        config.host,
+        config.server_addr,
         config.port,
         body.len(),
         body.as_str(),
@@ -60,7 +58,7 @@ async fn post_reading(
     let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
     socket.set_timeout(Some(Duration::from_secs(5)));
     socket
-        .connect((config.address, config.port))
+        .connect((config.server_ip, config.port))
         .await
         .map_err(|_| AppError::TcpConnectFailed)?;
     socket
@@ -99,6 +97,19 @@ async fn post_reading(
     }
 
     Ok(())
+}
+
+fn json_body(reading: Reading) -> Result<HeaplessString<96>, AppError> {
+    let mut body = HeaplessString::new();
+
+    write!(
+        body,
+        "{{\"temperature_millicelsius\":{},\"relative_humidity_hundredths\":{}}}",
+        reading.temperature_millicelsius, reading.relative_humidity_hundredths,
+    )
+    .map_err(|_| AppError::BodyBufferTooSmall)?;
+
+    Ok(body)
 }
 
 fn parse_http_status(response: &[u8]) -> Result<u16, AppError> {

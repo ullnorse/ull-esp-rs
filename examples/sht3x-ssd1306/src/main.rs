@@ -4,11 +4,8 @@
 use embassy_executor::Spawner;
 
 mod app;
-mod config;
 mod error;
-mod reading;
 mod tasks;
-mod telemetry;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
