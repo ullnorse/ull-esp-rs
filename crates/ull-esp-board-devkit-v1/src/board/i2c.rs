@@ -7,8 +7,8 @@ use esp_hal::{
 
 use super::{Board, BoardError};
 
-static SHARED_I2C0_RESOURCES: ull_esp_platform::SharedI2cResources =
-    ull_esp_platform::SharedI2cResources::new();
+static SHARED_I2C0_RESOURCES: ull_esp_platform::i2c::SharedI2cResources =
+    ull_esp_platform::i2c::SharedI2cResources::new();
 
 pub(crate) struct I2c0Parts {
     pub(crate) controller: esp_hal::peripherals::I2C0<'static>,
@@ -17,10 +17,12 @@ pub(crate) struct I2c0Parts {
 
 impl I2c0Parts {
     fn into_async_with_config(self, config: Config) -> Result<I2c<'static, Async>, ConfigError> {
-        Ok(I2c::new(self.controller, config)?
-            .with_scl(self.pins.scl)
-            .with_sda(self.pins.sda)
-            .into_async())
+        ull_esp_platform::i2c::init_i2c_with_config(
+            self.controller,
+            self.pins.scl,
+            self.pins.sda,
+            config,
+        )
     }
 }
 
@@ -39,14 +41,14 @@ impl Board {
 
     pub fn take_i2c0_shared(
         &mut self,
-    ) -> Result<&'static ull_esp_platform::SharedI2cBus, BoardError> {
+    ) -> Result<&'static ull_esp_platform::i2c::SharedI2cBus, BoardError> {
         self.take_i2c0_shared_with_config(Config::default())
     }
 
     pub fn take_i2c0_shared_with_config(
         &mut self,
         config: Config,
-    ) -> Result<&'static ull_esp_platform::SharedI2cBus, BoardError> {
+    ) -> Result<&'static ull_esp_platform::i2c::SharedI2cBus, BoardError> {
         let i2c = self.take_i2c0_with_config(config)?;
         Ok(SHARED_I2C0_RESOURCES.init(i2c))
     }

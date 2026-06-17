@@ -8,13 +8,13 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{Channel, TrySendError};
 use embassy_sync::signal::Signal;
 use ull_esp_board_devkit_v1::Board;
-use ull_esp_platform::{SharedI2cBus, runtime};
+use ull_esp_platform::{config::WifiConfig, i2c::SharedI2cBus, runtime};
 
 use crate::error::AppError;
 use crate::tasks::{display, http, sensor};
 
 pub(crate) struct AppConfig {
-    wifi: ull_esp_platform::WifiConfig<'static>,
+    wifi: WifiConfig<'static>,
     readings: ReadingsConfig,
 }
 
@@ -58,7 +58,7 @@ pub(crate) static APP_RESOURCES: AppResources = AppResources::new();
 impl AppConfig {
     fn from_env() -> Result<Self, AppError> {
         Ok(Self {
-            wifi: ull_esp_platform::WifiConfig::new(env!("WIFI_SSID"), env!("WIFI_PASSWORD")),
+            wifi: WifiConfig::new(env!("WIFI_SSID"), env!("WIFI_PASSWORD")),
             readings: ReadingsConfig::from_env()?,
         })
     }
