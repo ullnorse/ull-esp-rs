@@ -8,7 +8,7 @@ The architecture should optimize for:
 - explicit ownership of the stack
 - logical code placement
 - low duplication across ESP32 projects
-- raw escape hatches when the abstraction is not enough
+- direct escape hatches when the convenience path is not enough
 
 ## Layers
 
@@ -83,8 +83,8 @@ This crate should be allowed to depend on `platform`.
 That is the main architectural decision: the board crate is not just a pile of
 HAL pin aliases. It is a BSP for the stack we actually use.
 
-Board crates should still expose raw escape hatches when needed. Convenience is
-good, but it must not trap the app in a closed abstraction.
+Board crates should still expose direct escape hatches when needed. Convenience
+is good, but it must not trap the app in a closed abstraction.
 
 ### App
 
@@ -116,7 +116,7 @@ When deciding where code belongs, ask one question:
 
 - prefer explicit resource structs over framework-style global managers
 - keep defaults, but do not hardcode policy as the only path
-- expose raw parts when practical
+- keep convenience APIs configurable when defaults are not enough
 - keep app behavior and retry logic out of the lower layers
 - split crates by dependency boundaries, not by aesthetics
 
@@ -132,7 +132,7 @@ When deciding where code belongs, ask one question:
 
 1. `ull-esp-platform` is the ESP stack crate for this repo
 2. `ull-esp-board-devkit-v1` should become a real BSP crate
-3. board crates may compose platform defaults, while still exposing raw parts
+3. board crates may compose platform defaults, while still leaving room for caller-provided configuration
 4. examples should keep product policy and task topology
 5. reusable ESP mechanics should move out of examples and into `platform`
 
