@@ -49,6 +49,7 @@ board.start_runtime()?;
 
 let i2c_bus = board.take_i2c0_shared()?;
 let spi = board.take_spi2()?;
+let spi_cs = board.take_spi2_cs()?;
 let uart = board.take_uart2()?;
 
 let wifi_config = ull_esp_platform::config::WifiConfig::new("ssid", "password");
