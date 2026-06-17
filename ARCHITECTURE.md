@@ -120,6 +120,14 @@ When deciding where code belongs, ask one question:
 - keep app behavior and retry logic out of the lower layers
 - split crates by dependency boundaries, not by aesthetics
 
+## API Conventions
+
+- prefer module-qualified APIs over crate-root re-exports for platform modules
+- keep simple peripheral bring-up close to `esp-hal`: accept HAL `Config` types and return HAL peripheral and config error types
+- use `init_*` for HAL-default convenience constructors and `init_*_with_config` when the caller provides a HAL config explicitly
+- keep platform helpers board-agnostic; board crates own default pin mapping and convenience composition
+- reserve repo-owned config and error types for composed services that do more than one simple HAL peripheral bring-up step
+
 ## Implications For This Repo
 
 1. `ull-esp-platform` is the ESP stack crate for this repo
