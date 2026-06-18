@@ -1,36 +1,31 @@
 [package]
-name = "ull-esp-platform"
+name = "http-ota"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Reusable ESP32 platform mechanics for Embassy-based projects"
-categories = ["embedded", "hardware-support", "no-std"]
-keywords = ["esp32", "embassy", "wifi", "embedded"]
+publish = false
 
-[lib]
-path = "src/lib.rs"
+[[bin]]
+name = "http-ota"
+path = "src/main.rs"
 test = false
-doctest = false
 bench = false
-
-[lints]
-workspace = true
 
 [dependencies]
 embassy-executor.workspace = true
 embassy-net.workspace = true
 embassy-sync.workspace = true
 embassy-time.workspace = true
-embedded-storage.workspace = true
-esp-alloc.workspace = true
 esp-bootloader-esp-idf.workspace = true
 esp-hal.workspace = true
-esp-println.workspace = true
-esp-radio.workspace = true
 esp-rtos.workspace = true
-esp-storage.workspace = true
+heapless.workspace = true
 log.workspace = true
+picoserve.workspace = true
+sha2.workspace = true
 static_cell.workspace = true
 thiserror.workspace = true
+ull-esp-board-devkit-v1 = { path = "../../crates/ull-esp-board-devkit-v1" }
+ull-esp-platform = { path = "../../crates/ull-esp-platform" }

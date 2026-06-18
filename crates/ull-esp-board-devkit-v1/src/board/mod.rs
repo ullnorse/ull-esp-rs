@@ -21,6 +21,7 @@ pub struct RuntimeParts {
 
 pub struct Board {
     runtime: Option<RuntimeParts>,
+    flash: Option<esp_hal::peripherals::FLASH<'static>>,
     wifi: Option<wifi::WifiParts>,
     i2c0: Option<i2c::I2c0Parts>,
     spi2: Option<spi::Spi2Parts>,
@@ -56,6 +57,7 @@ impl Board {
             GPIO17: gpio17,
             GPIO16: gpio16,
             GPIO2: gpio2,
+            FLASH: flash,
             WIFI: wifi,
             ..
         } = peripherals;
@@ -65,6 +67,7 @@ impl Board {
                 timg0,
                 sw_interrupt,
             }),
+            flash: Some(flash),
             wifi: Some(wifi::WifiParts { peripheral: wifi }),
             i2c0: Some(i2c::I2c0Parts {
                 controller: i2c0,
@@ -104,6 +107,13 @@ impl Board {
     pub fn start_runtime(&mut self) -> Result<(), BoardError> {
         self.take_runtime()?.start();
         Ok(())
+    }
+
+    pub fn take_flash_storage(
+        &mut self,
+    ) -> Result<ull_esp_platform::ota::FlashStorageDevice, BoardError> {
+        let flash = self.flash.take().ok_or(BoardError::AlreadyTaken("flash"))?;
+        Ok(ull_esp_platform::ota::init_flash_storage(flash))
     }
 
     pub async fn sleep(&self, duration: Duration) {

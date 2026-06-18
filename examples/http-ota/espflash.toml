@@ -1,0 +1,8 @@
+baudrate = 921600
+
+[idf]
+bootloader = "bootloader/bootloader.bin"
+partition_table = "partitions.csv"
+
+[flash]
+size = "4MB"
