@@ -20,6 +20,9 @@ Copy `.env.example` to `.env` and set:
 
 For this POC, `FLEET_BASE_URL` must use a numeric IPv4 address. HTTPS and DNS are not wired yet.
 
+These values are compiled into the firmware by `build.rs`. Changing them
+requires a rebuild.
+
 ## Initial Flash
 
 Build the example from the workspace root:
@@ -37,6 +40,17 @@ espflash flash --chip esp32 --monitor \
   target/xtensa-esp32-none-elf/release/http-ota
 ```
 
+## Factoryless OTA Layout
+
+`examples/http-ota/partitions.csv` uses a factoryless layout:
+
+- no `factory` app partition
+- one `otadata` partition
+- two OTA app slots: `ota_0` and `ota_1`
+
+On first boot, the example seeds `otadata` from the currently booted OTA slot so
+the ESP-IDF bootloader can manage future OTA selections normally.
+
 ## Generate OTA Image
 
 Create an Application Image for the Fleet Management Service to serve:
@@ -51,12 +65,27 @@ espflash save-image --chip esp32 \
 
 Do not pass `--merge`. Device-Pull OTA must use the Application Image only.
 
-## Backend Flow
+## Backend Contract
 
 The `ull-fleet-rs` backend POC in the sibling repo exposes:
 
 - `POST /api/upload`
 - `GET /api/update`
+
+The current device client expects `GET /api/update` to behave like this:
+
+- `204 No Content` means no update is available
+- any update response must be `2xx`
+- the response body must be the raw Application Image bytes
+- the response must include `Content-Length`
+- the response must include `X-Application-Image-Sha256`
+- chunked transfer encoding is not supported
+
+The poll request currently sends only `GET /api/update` with a `Host` header. It
+does not send device identity, current firmware version, or update
+authorization.
+
+## Backend Flow
 
 Upload a new image with:
 
@@ -68,9 +97,19 @@ The device will pick it up on the next 10-second poll.
 
 ## Health Confirmation
 
-On a `pending_verify` or `new` boot, the example waits for network restoration and then marks the running image healthy.
+On a `pending_verify` or `new` boot, the example waits up to 30 seconds for
+network configuration to come back and then marks the running image healthy.
+
+If that timeout expires, or if health confirmation itself fails, the example
+marks the running image invalid and reboots so the bootloader can roll back.
 
 Rollback remains driven by the ESP-IDF 2nd-stage bootloader state.
+
+## Security Note
+
+The current example downloads firmware over plain HTTP and verifies only that
+the downloaded bytes match the SHA-256 digest provided in the same HTTP
+response. That checks transfer consistency, not trusted firmware authenticity.
 
 ## Bootloader Note
 

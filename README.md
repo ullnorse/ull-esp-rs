@@ -7,7 +7,7 @@ For the current design direction, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 This repository sits between app code and device drivers:
 
 - `ull-drivers-rs` owns reusable chip and module drivers
-- `ull-esp-rs` owns ESP32 runtime, Wi-Fi, board, and peripheral setup
+- `ull-esp-rs` owns ESP32 runtime, Wi-Fi, board, flash, and OTA setup
 - app repositories own task topology and product logic
 
 ## Goals
@@ -32,10 +32,12 @@ ull-esp-rs/
     └── sht3x-ssd1306/
 ```
 
-## Crates
+`boards/esp32-devkit-v1` contains the Cargo package `ull-esp-board-devkit-v1`.
 
- - `ull-esp-platform`: reusable runtime, Wi-Fi, flash, OTA, and peripheral helpers for ESP32 projects using Embassy.
- - `ull-esp-board-devkit-v1`: ESP32 DevKit V1 board mapping and convenience helpers built on `ull-esp-platform`.
+## Workspace Packages
+
+- `ull-esp-platform`: reusable runtime, Wi-Fi, flash, OTA, and peripheral helpers for ESP32 projects using Embassy.
+- `ull-esp-board-devkit-v1`: ESP32 DevKit V1 board mapping and convenience helpers built on `ull-esp-platform`.
 
 ## API Direction
 
@@ -63,16 +65,30 @@ Lower-level platform helpers remain available under module-qualified paths such 
 
 ## Examples
 
+- `examples/blinky`: smallest board smoke test for runtime startup and the status LED.
 - `examples/sht3x-ssd1306`: end-to-end example using Wi-Fi, shared I2C, SHT3x, and SSD1306.
 - `examples/http-ota`: Device-Pull OTA example with example-scoped fleet polling on top of `ull-esp-platform::ota`.
 
-Each example that needs compile-time configuration should keep its own `.env.example`
-and local `.env`, loaded by that example's `build.rs`.
+Examples that need compile-time configuration keep their own `.env.example`
+and local `.env`, loaded by that example's `build.rs`. Those values are baked
+into the firmware at build time, so changing them requires a rebuild.
 
-At the moment the example uses sibling path dependencies to the local `ull-drivers-rs` checkout.
+`examples/sht3x-ssd1306` also depends on a sibling `../ull-drivers-rs` checkout
+for `ull-sht3x` and `ull-ssd1306`.
+
+## Prerequisites
+
+- the checked-in Rust toolchain channel is `esp`
+- the checked-in Cargo config builds for `xtensa-esp32-none-elf` by default and enables `build-std = ["alloc", "core"]`
+- `examples/sht3x-ssd1306` needs the sibling `ull-drivers-rs` repository
+- `examples/http-ota` and `examples/sht3x-ssd1306` expect build-time environment variables from `.env` or the shell
 
 ## Commands
 
 ```bash
+# self-contained smoke test
+cargo check -p ull-esp-platform -p ull-esp-board-devkit-v1 -p blinky -p http-ota
+
+# full workspace check; requires sibling ull-drivers-rs and example env setup
 cargo check --workspace
 ```

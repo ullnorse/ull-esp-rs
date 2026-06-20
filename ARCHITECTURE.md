@@ -78,6 +78,9 @@ Board support package for a physical board.
 - default peripheral assignments
 - board-specific convenience composition on top of `platform`
 
+In this workspace, board crates live under `boards/` even though they are still
+normal Cargo packages.
+
 This crate should be allowed to depend on `platform`.
 
 That is the main architectural decision: the board crate is not just a pile of
@@ -131,10 +134,11 @@ When deciding where code belongs, ask one question:
 ## Implications For This Repo
 
 1. `ull-esp-platform` is the ESP stack crate for this repo
-2. `ull-esp-board-devkit-v1` should become a real BSP crate
-3. board crates may compose platform defaults, while still leaving room for caller-provided configuration
-4. examples should keep product policy and task topology
-5. reusable ESP mechanics should move out of examples and into `platform`
+2. `ull-esp-board-devkit-v1` is the current BSP crate for the workspace
+3. future board crates should live under `boards/`
+4. board crates may compose platform defaults, while still leaving room for caller-provided configuration
+5. examples should keep product policy and task topology
+6. reusable ESP mechanics belong in `platform`, not in examples
 
 ## Non-Goals
 
