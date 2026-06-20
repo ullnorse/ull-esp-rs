@@ -1,11 +1,14 @@
 # http-ota
 
-Dedicated ESP32 OTA example using `esp-hal`, `embassy-net`, `picoserve`, `esp-storage`, and `esp-bootloader-esp-idf`.
+Dedicated ESP32 OTA example using `esp-hal`, `embassy-net`, and `ull-esp-platform::ota`.
 
-It exposes:
+The device now uses a dirt-simple Device-Pull OTA flow:
 
-- `POST /ota` for authenticated application-image uploads
-- `GET /ota/status` for authenticated OTA status and upload progress
+- it polls `GET /api/update` every 10 seconds
+- if the backend has a pending OTA image, it downloads it over outbound HTTP
+- it writes the inactive OTA slot locally and reboots
+
+The example keeps the fleet HTTP contract, polling cadence, and health policy. The reusable ESP image install and boot-state mechanics live in `ull-esp-platform::ota`.
 
 ## Configuration
 
@@ -13,8 +16,9 @@ Copy `.env.example` to `.env` and set:
 
 - `WIFI_SSID`
 - `WIFI_PASSWORD`
-- `OTA_TOKEN`
-- optional `OTA_PORT` (defaults to `8080`)
+- `FLEET_BASE_URL` as `http://<ipv4>[:port]`
+
+For this POC, `FLEET_BASE_URL` must use a numeric IPv4 address. HTTPS and DNS are not wired yet.
 
 ## Initial Flash
 
@@ -35,7 +39,7 @@ espflash flash --chip esp32 --monitor \
 
 ## Generate OTA Image
 
-Create an application image for OTA upload:
+Create an Application Image for the Fleet Management Service to serve:
 
 ```bash
 espflash save-image --chip esp32 \
@@ -45,26 +49,28 @@ espflash save-image --chip esp32 \
   ota.bin
 ```
 
-Do not pass `--merge`. OTA uploads must use the application image only.
+Do not pass `--merge`. Device-Pull OTA must use the Application Image only.
 
-## Upload Firmware
+## Backend Flow
 
-Compute the SHA-256 digest and upload the image:
+The `ull-fleet-rs` backend POC in the sibling repo exposes:
 
-```bash
-SHA256=$(sha256sum ota.bin | cut -d' ' -f1)
+- `POST /api/upload`
+- `GET /api/update`
 
-curl -X POST "http://<device-ip>:8080/ota" \
-  -H "X-OTA-Token: <your-token>" \
-  -H "X-OTA-SHA256: ${SHA256}" \
-  --data-binary @ota.bin
-```
-
-Check status:
+Upload a new image with:
 
 ```bash
-curl -H "X-OTA-Token: <your-token>" "http://<device-ip>:8080/ota/status"
+curl -F file=@ota.bin http://127.0.0.1:3000/api/upload
 ```
+
+The device will pick it up on the next 10-second poll.
+
+## Health Confirmation
+
+On a `pending_verify` or `new` boot, the example waits for network restoration and then marks the running image healthy.
+
+Rollback remains driven by the ESP-IDF 2nd-stage bootloader state.
 
 ## Bootloader Note
 

@@ -4,7 +4,9 @@
 use embassy_executor::Spawner;
 
 mod app;
+mod config;
 mod error;
+mod http;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 

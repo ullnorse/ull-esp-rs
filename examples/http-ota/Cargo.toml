@@ -18,13 +18,12 @@ embassy-executor.workspace = true
 embassy-net.workspace = true
 embassy-sync.workspace = true
 embassy-time.workspace = true
+embedded-io-async.workspace = true
 esp-bootloader-esp-idf.workspace = true
 esp-hal.workspace = true
 esp-rtos.workspace = true
 heapless.workspace = true
 log.workspace = true
-picoserve.workspace = true
-sha2.workspace = true
 static_cell.workspace = true
 thiserror.workspace = true
 ull-esp-board-devkit-v1 = { path = "../../crates/ull-esp-board-devkit-v1" }
