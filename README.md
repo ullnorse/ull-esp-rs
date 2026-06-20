@@ -23,8 +23,9 @@ This repository sits between app code and device drivers:
 ```text
 ull-esp-rs/
 ├── crates/
-│   ├── ull-esp-platform/
-│   └── ull-esp-board-devkit-v1/
+│   └── ull-esp-platform/
+├── boards/
+│   └── esp32-devkit-v1/
 └── examples/
     ├── blinky/
     ├── http-ota/

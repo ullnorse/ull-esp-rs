@@ -26,5 +26,5 @@ heapless.workspace = true
 log.workspace = true
 static_cell.workspace = true
 thiserror.workspace = true
-ull-esp-board-devkit-v1 = { path = "../../crates/ull-esp-board-devkit-v1" }
+ull-esp-board-devkit-v1 = { path = "../../boards/esp32-devkit-v1" }
 ull-esp-platform = { path = "../../crates/ull-esp-platform" }

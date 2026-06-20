@@ -6,7 +6,7 @@ fn main() {
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=../../crates/ull-esp-platform/src");
-    println!("cargo:rerun-if-changed=../../crates/ull-esp-board-devkit-v1/src");
+    println!("cargo:rerun-if-changed=../../boards/esp32-devkit-v1/src");
     load_dotenv();
     export_build_id();
     linker_be_nice();

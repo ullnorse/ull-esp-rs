@@ -19,5 +19,5 @@ esp-bootloader-esp-idf.workspace = true
 esp-hal.workspace = true
 esp-rtos.workspace = true
 log.workspace = true
-ull-esp-board-devkit-v1 = { path = "../../crates/ull-esp-board-devkit-v1" }
+ull-esp-board-devkit-v1 = { path = "../../boards/esp32-devkit-v1" }
 ull-esp-platform = { path = "../../crates/ull-esp-platform" }
