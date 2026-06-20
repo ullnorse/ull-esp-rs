@@ -26,19 +26,21 @@ ull-esp-rs/
 │   ├── ull-esp-platform/
 │   └── ull-esp-board-devkit-v1/
 └── examples/
+    ├── blinky/
+    ├── http-ota/
     └── sht3x-ssd1306/
 ```
 
 ## Crates
 
- - `ull-esp-platform`: reusable runtime, I2C, SPI, UART, and Wi-Fi helpers for ESP32 projects using Embassy.
+ - `ull-esp-platform`: reusable runtime, Wi-Fi, flash, OTA, and peripheral helpers for ESP32 projects using Embassy.
  - `ull-esp-board-devkit-v1`: ESP32 DevKit V1 board mapping and convenience helpers built on `ull-esp-platform`.
 
 ## API Direction
 
 The intended shape is explicit parts over framework-style wrappers:
 
-- `ull-esp-platform` owns generic ESP bring-up under module-qualified APIs like `runtime`, `i2c`, `spi`, `uart`, `wifi`, `config`, and `error`.
+- `ull-esp-platform` owns generic ESP bring-up under module-qualified APIs like `runtime`, `wifi`, `flash`, `ota`, `i2c`, `spi`, `uart`, `config`, and `error`.
 - `ull-esp-board-devkit-v1` owns DevKit V1 pin mapping and board-specific convenience composition on top of `ull-esp-platform`.
 
 Typical app code can stay on the board convenience path:
@@ -61,6 +63,7 @@ Lower-level platform helpers remain available under module-qualified paths such 
 ## Examples
 
 - `examples/sht3x-ssd1306`: end-to-end example using Wi-Fi, shared I2C, SHT3x, and SSD1306.
+- `examples/http-ota`: Device-Pull OTA example with example-scoped fleet polling on top of `ull-esp-platform::ota`.
 
 Each example that needs compile-time configuration should keep its own `.env.example`
 and local `.env`, loaded by that example's `build.rs`.

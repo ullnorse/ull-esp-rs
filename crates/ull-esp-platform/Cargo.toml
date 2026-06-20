@@ -32,5 +32,6 @@ esp-radio.workspace = true
 esp-rtos.workspace = true
 esp-storage.workspace = true
 log.workspace = true
+sha2.workspace = true
 static_cell.workspace = true
 thiserror.workspace = true

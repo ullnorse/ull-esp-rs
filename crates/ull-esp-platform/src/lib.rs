@@ -22,6 +22,7 @@ macro_rules! define_heap {
 
 pub mod config;
 pub mod error;
+pub mod flash;
 pub mod i2c;
 pub mod ota;
 pub mod runtime;

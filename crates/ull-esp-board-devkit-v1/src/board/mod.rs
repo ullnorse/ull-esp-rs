@@ -111,9 +111,9 @@ impl Board {
 
     pub fn take_flash_storage(
         &mut self,
-    ) -> Result<ull_esp_platform::ota::FlashStorageDevice, BoardError> {
+    ) -> Result<ull_esp_platform::flash::FlashStorageDevice, BoardError> {
         let flash = self.flash.take().ok_or(BoardError::AlreadyTaken("flash"))?;
-        Ok(ull_esp_platform::ota::init_flash_storage(flash))
+        Ok(ull_esp_platform::flash::init_flash_storage(flash))
     }
 
     pub async fn sleep(&self, duration: Duration) {
