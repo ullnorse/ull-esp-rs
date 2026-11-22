@@ -2,7 +2,7 @@ use esp_bootloader_esp_idf::ota::OtaImageState;
 use esp_bootloader_esp_idf::partitions::AppPartitionSubType;
 use esp_storage::FlashStorage;
 use sha2::{Digest, Sha256};
-use ull_esp_core::image::{APP_IMAGE_PREFIX_LEN, validate_prefix};
+use ull_esp_core::image::{APP_DESC_PREFIX_LEN, app_desc};
 use ull_esp_core::signature::{PUBLIC_KEY_LEN, SIGNATURE_LEN, verify_image};
 
 use crate::flash::FlashStorageDevice;
@@ -149,7 +149,8 @@ impl PartitionWriter {
 /// Order of checks:
 /// 1. `begin`: size fits, and the signature over the claimed digest verifies
 ///    (when a public key is given). Nothing is erased if this fails.
-/// 2. `write_chunk`: the ESP image header magic, as soon as enough bytes arrive.
+/// 2. `write_chunk`: the ESP image header and app descriptor (magic words and
+///    the anti-rollback `secure_version`), before the first sector is erased.
 /// 3. `finish`: byte count and the SHA-256 of what was written equals the
 ///    signed digest. Only then is otadata switched to the new partition.
 ///
@@ -160,8 +161,9 @@ pub struct UpdateInstaller<'a> {
     expected: ExpectedImage,
     target: UpdateTarget,
     writer: PartitionWriter,
-    prefix: [u8; APP_IMAGE_PREFIX_LEN],
+    prefix: [u8; APP_DESC_PREFIX_LEN],
     prefix_len: usize,
+    min_secure_version: u32,
     hasher: Sha256,
     activated: bool,
 }
@@ -187,11 +189,20 @@ impl<'a> UpdateInstaller<'a> {
             expected,
             target,
             writer,
-            prefix: [0u8; APP_IMAGE_PREFIX_LEN],
+            prefix: [0u8; APP_DESC_PREFIX_LEN],
             prefix_len: 0,
+            min_secure_version: 0,
             hasher: Sha256::new(),
             activated: false,
         })
+    }
+
+    /// Rejects images whose app descriptor `secure_version` is below `min`,
+    /// before anything is erased. Pass the running firmware's own
+    /// `secure_version` so a replayed older (but validly signed) image is refused.
+    pub fn require_secure_version(mut self, min: u32) -> Self {
+        self.min_secure_version = min;
+        self
     }
 
     pub fn target(&self) -> UpdateTarget {
@@ -203,13 +214,19 @@ impl<'a> UpdateInstaller<'a> {
     }
 
     pub fn write_chunk(&mut self, chunk: &[u8]) -> Result<(), OtaError> {
-        if self.prefix_len < APP_IMAGE_PREFIX_LEN {
-            let take = (APP_IMAGE_PREFIX_LEN - self.prefix_len).min(chunk.len());
+        if self.prefix_len < APP_DESC_PREFIX_LEN {
+            let take = (APP_DESC_PREFIX_LEN - self.prefix_len).min(chunk.len());
             self.prefix[self.prefix_len..self.prefix_len + take].copy_from_slice(&chunk[..take]);
             self.prefix_len += take;
 
-            if self.prefix_len == APP_IMAGE_PREFIX_LEN {
-                validate_prefix(&self.prefix)?;
+            if self.prefix_len == APP_DESC_PREFIX_LEN {
+                let desc = app_desc(&self.prefix)?;
+                if desc.secure_version < self.min_secure_version {
+                    return Err(OtaError::Rollback {
+                        image: desc.secure_version,
+                        running: self.min_secure_version,
+                    });
+                }
             }
         }
 
@@ -218,7 +235,7 @@ impl<'a> UpdateInstaller<'a> {
     }
 
     pub fn finish(mut self) -> Result<InstalledImage, OtaError> {
-        if self.prefix_len < APP_IMAGE_PREFIX_LEN {
+        if self.prefix_len < APP_DESC_PREFIX_LEN {
             return Err(OtaError::ImageTooSmallForValidation);
         }
 

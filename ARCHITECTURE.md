@@ -67,6 +67,12 @@ Reusable ESP32 stack mechanics.
 This layer is board-agnostic. It should know how the ESP stack works, not what
 physical board is attached.
 
+`fleet` is the one composed service here: the client for the ull-fleet
+protocol (check-in, update, health confirmation). The protocol is shared by
+every device that reports to the server, so it lives in one place; apps decide
+which metrics to report and when to start the agent. Its wire format and
+parsing are in `ull-esp-core::fleet`, tested on the host.
+
 `ull-esp-platform` is the crate that should own this role.
 
 ### Board

@@ -3,7 +3,7 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_time::{Delay, Duration, Timer};
 use ull_sht3x::{Address, Repeatability, Sht3x};
 
-use crate::app::{APP_RESOURCES, Reading};
+use crate::app::{DISPLAY_READING, METRICS, Reading};
 
 #[embassy_executor::task]
 pub async fn sensor_task(
@@ -34,8 +34,15 @@ pub async fn sensor_task(
                 let is_negative = fixed.temperature_millicelsius < 0;
                 let temperature_abs = fixed.temperature_millicelsius.abs();
 
-                APP_RESOURCES.display_reading.signal(reading);
-                APP_RESOURCES.enqueue_publish_reading(reading);
+                DISPLAY_READING.signal(reading);
+                METRICS.set(
+                    "temperature_c",
+                    fixed.temperature_millicelsius as f32 / 1000.0,
+                );
+                METRICS.set(
+                    "humidity_pct",
+                    f32::from(fixed.relative_humidity_hundredths) / 100.0,
+                );
 
                 log::info!(
                     "temp = {}{}.{:03} C, rh = {}.{:02} %",

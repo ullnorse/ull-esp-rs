@@ -7,7 +7,7 @@ mod app;
 mod config;
 mod error;
 
-esp_bootloader_esp_idf::esp_app_desc!();
+ull_esp_platform::firmware_app_desc!();
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {

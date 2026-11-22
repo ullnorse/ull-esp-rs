@@ -1,8 +1,9 @@
 baudrate = 921600
 
+# Two OTA slots, no factory app; see ../ota-layout/README.md.
 [idf]
-bootloader = "bootloader/bootloader.bin"
-partition_table = "partitions.csv"
+bootloader = "../ota-layout/bootloader.bin"
+partition_table = "../ota-layout/partitions.csv"
 
 [flash]
 size = "4MB"

@@ -61,3 +61,120 @@ fn linker_be_nice() {
         std::env::current_exe().unwrap().display()
     );
 }
+
+/// Re-runs the build script when these paths change, so the firmware
+/// version below is fresh for every build with different sources.
+#[allow(dead_code)]
+fn rerun_if_changed(paths: &[&str]) {
+    for path in [".env", "build.rs", "Cargo.toml", "src", "../build_support.rs"]
+        .iter()
+        .chain(paths)
+    {
+        println!("cargo:rerun-if-changed={path}");
+    }
+}
+
+/// Sets the release identity read by `ull_esp_platform::firmware_app_desc!`:
+///
+/// - `FIRMWARE_VERSION`: `<crate version>+<git rev>-<build epoch>` (at most
+///   31 bytes, the app descriptor limit). The fleet server keys releases on it.
+/// - `FIRMWARE_SECURE_VERSION`: the build epoch. Devices refuse updates with a
+///   lower value, so an old signed image cannot be replayed.
+/// - `FIRMWARE_BUILD_DATE` / `FIRMWARE_BUILD_TIME`: UTC, `Nov 23 2026` / `03:04:05`.
+#[allow(dead_code)]
+fn export_firmware_identity() {
+    let epoch = std::env::var("SOURCE_DATE_EPOCH")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or_else(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock before unix epoch")
+                .as_secs()
+        });
+    let rev = std::process::Command::new("git")
+        .args(["rev-parse", "--short=7", "HEAD"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|rev| rev.trim().to_string())
+        .filter(|rev| !rev.is_empty())
+        .unwrap_or_else(|| "nogit".to_string());
+    let mut version = format!(
+        "{}+{rev}-{epoch}",
+        std::env::var("CARGO_PKG_VERSION").unwrap()
+    );
+    version.truncate(31);
+
+    let (date, time) = utc_date_time(epoch);
+    println!("cargo:rustc-env=FIRMWARE_VERSION={version}");
+    println!("cargo:rustc-env=FIRMWARE_SECURE_VERSION={}", epoch.min(u64::from(u32::MAX)));
+    println!("cargo:rustc-env=FIRMWARE_BUILD_DATE={date}");
+    println!("cargo:rustc-env=FIRMWARE_BUILD_TIME={time}");
+    println!("cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH");
+}
+
+/// `("Nov 23 2026", "03:04:05")` for a Unix time (UTC).
+#[allow(dead_code)]
+fn utc_date_time(epoch: u64) -> (String, String) {
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let days = (epoch / 86_400) as i64;
+    let seconds = epoch % 86_400;
+    // Civil-from-days (Howard Hinnant).
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    (
+        format!("{} {day:02} {year}", MONTHS[(month - 1) as usize]),
+        format!(
+            "{:02}:{:02}:{:02}",
+            seconds / 3600,
+            seconds / 60 % 60,
+            seconds % 60
+        ),
+    )
+}
+
+/// Exports every `KEY=value` line of `.env` as a compile-time variable,
+/// unless the variable is already set in the environment.
+#[allow(dead_code)]
+fn load_dotenv() {
+    let manifest_dir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let Ok(contents) = std::fs::read_to_string(manifest_dir.join(".env")) else {
+        println!("cargo:warning=.env not found; configuration must come from the environment");
+        return;
+    };
+
+    for line in contents.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        println!("cargo:rerun-if-env-changed={key}");
+        if std::env::var_os(key).is_some() {
+            // The environment wins, so one build can override `.env`.
+            continue;
+        }
+        let mut value = value.trim();
+        if value.len() >= 2
+            && ((value.starts_with('"') && value.ends_with('"'))
+                || (value.starts_with('\'') && value.ends_with('\'')))
+        {
+            value = &value[1..value.len() - 1];
+        }
+        println!("cargo:rustc-env={key}={value}");
+    }
+}

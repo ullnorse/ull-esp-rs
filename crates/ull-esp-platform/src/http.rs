@@ -25,6 +25,8 @@ pub enum HttpClientError {
     Malformed,
     #[error("invalid Content-Length")]
     InvalidContentLength,
+    #[error("response body does not fit the {0}-byte buffer")]
+    BodyTooLarge(usize),
 }
 
 impl From<HttpError> for HttpClientError {
@@ -91,4 +93,34 @@ pub async fn read_response_head<'b>(
 pub async fn close(socket: &mut TcpSocket<'_>) {
     socket.close();
     let _ = socket.flush().await;
+}
+
+/// Reads a small response body into `buffer`: the bytes that came with the
+/// head, then up to `Content-Length` (or end of stream) from the socket.
+pub async fn read_small_body<'b>(
+    socket: &mut TcpSocket<'_>,
+    head: &ResponseHead<'_>,
+    body_prefix: &[u8],
+    buffer: &'b mut [u8],
+) -> Result<&'b [u8], HttpClientError> {
+    let wanted = match head.content_length()? {
+        Some(length) if length > buffer.len() => {
+            return Err(HttpClientError::BodyTooLarge(buffer.len()));
+        }
+        Some(length) => length,
+        None => buffer.len(),
+    };
+    let mut received = body_prefix.len().min(wanted);
+    buffer[..received].copy_from_slice(&body_prefix[..received]);
+    while received < wanted {
+        let count = socket
+            .read(&mut buffer[received..wanted])
+            .await
+            .map_err(|_| HttpClientError::Read)?;
+        if count == 0 {
+            break;
+        }
+        received += count;
+    }
+    Ok(&buffer[..received])
 }

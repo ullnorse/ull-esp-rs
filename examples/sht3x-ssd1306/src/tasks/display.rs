@@ -12,7 +12,7 @@ use embedded_graphics::{
 use heapless::String as HeaplessString;
 use ull_ssd1306::{DisplaySize128x64, Rotation, Ssd1306};
 
-use crate::app::APP_RESOURCES;
+use crate::app::DISPLAY_READING;
 
 #[embassy_executor::task]
 pub async fn display_task(
@@ -42,7 +42,7 @@ pub async fn display_task(
         }
 
         loop {
-            let reading = APP_RESOURCES.display_reading.wait().await;
+            let reading = DISPLAY_READING.wait().await;
 
             let is_negative = reading.temperature_millicelsius < 0;
             let temp_abs = reading.temperature_millicelsius.abs();

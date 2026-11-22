@@ -15,7 +15,9 @@ pub use boot::{
 };
 pub use install::{ExpectedImage, InstalledImage, PartitionWriter, UpdateInstaller};
 pub use slots::{UpdateTarget, activate_partition, next_update_target};
-pub use ull_esp_core::image::{APP_IMAGE_PREFIX_LEN, validate_prefix as validate_app_image_prefix};
+pub use ull_esp_core::image::{
+    APP_DESC_PREFIX_LEN, APP_IMAGE_PREFIX_LEN, validate_prefix as validate_app_image_prefix,
+};
 pub use ull_esp_core::signature::{PUBLIC_KEY_LEN, SIGNATURE_LEN};
 
 #[derive(Debug, Error)]
@@ -28,12 +30,16 @@ pub enum OtaError {
     IncompleteImage(u32, u32),
     #[error("application image sent more than the expected {0} bytes")]
     ImageOverrun(u32),
-    #[error("application image is shorter than the {APP_IMAGE_PREFIX_LEN}-byte ESP header")]
+    #[error(
+        "application image is shorter than the {APP_DESC_PREFIX_LEN}-byte ESP header and app descriptor"
+    )]
     ImageTooSmallForValidation,
     #[error("invalid ESP image header magic byte: {0:#x}")]
     InvalidImageHeaderMagic(u8),
     #[error("invalid ESP app descriptor magic word: {0:#x}")]
     InvalidAppDescriptorMagic(u32),
+    #[error("image secure_version {image} is older than the running firmware ({running})")]
+    Rollback { image: u32, running: u32 },
     #[error("application image sha256 mismatch")]
     ImageDigestMismatch,
     #[error("update is not signed, but a public key is configured")]

@@ -1,3 +1,6 @@
+use core::sync::atomic::{AtomicI32, Ordering};
+
+use embassy_futures::select::{Either, select};
 use embassy_net::{Config as NetConfig, Stack, StackResources, StaticConfigV4};
 use embassy_time::{Duration, Timer};
 use esp_hal::peripherals::WIFI;
@@ -95,18 +98,45 @@ pub fn configure(
     Ok(())
 }
 
+/// Last RSSI of the station link in dBm; 0 while unknown or disconnected.
+static RSSI_DBM: AtomicI32 = AtomicI32::new(0);
+const RSSI_SAMPLE_PERIOD: Duration = Duration::from_secs(10);
+
+/// Signal strength of the current Wi-Fi link, sampled by [`connection_task`].
+pub fn rssi_dbm() -> Option<i32> {
+    match RSSI_DBM.load(Ordering::Relaxed) {
+        0 => None,
+        rssi => Some(rssi),
+    }
+}
+
+fn sample_rssi(controller: &WifiController<'static>) {
+    RSSI_DBM.store(controller.rssi().unwrap_or(0), Ordering::Relaxed);
+}
+
 #[embassy_executor::task]
 pub async fn connection_task(mut controller: WifiController<'static>) {
     loop {
         match controller.connect_async().await {
             Ok(_) => {
                 log::info!("wifi connected");
-                if let Err(err) = controller.wait_for_disconnect_async().await {
-                    log::warn!("wifi disconnect wait failed: {err:?}");
-                    Timer::after(Duration::from_secs(2)).await;
-                } else {
-                    log::warn!("wifi disconnected");
+                sample_rssi(&controller);
+                loop {
+                    let disconnect = controller.wait_for_disconnect_async();
+                    match select(disconnect, Timer::after(RSSI_SAMPLE_PERIOD)).await {
+                        Either::First(Ok(_)) => log::warn!("wifi disconnected"),
+                        Either::First(Err(err)) => {
+                            log::warn!("wifi disconnect wait failed: {err:?}");
+                            Timer::after(Duration::from_secs(2)).await;
+                        }
+                        Either::Second(()) => {
+                            sample_rssi(&controller);
+                            continue;
+                        }
+                    }
+                    break;
                 }
+                RSSI_DBM.store(0, Ordering::Relaxed);
             }
             Err(err) => {
                 log::warn!("wifi connect failed: {err:?}");

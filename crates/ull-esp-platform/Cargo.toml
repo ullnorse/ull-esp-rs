@@ -20,6 +20,7 @@ workspace = true
 
 [dependencies]
 embassy-executor.workspace = true
+embassy-futures.workspace = true
 embassy-net.workspace = true
 embassy-sync.workspace = true
 embassy-time.workspace = true
@@ -31,6 +32,7 @@ esp-println.workspace = true
 esp-radio.workspace = true
 esp-rtos.workspace = true
 esp-storage.workspace = true
+heapless.workspace = true
 log.workspace = true
 sha2.workspace = true
 static_cell.workspace = true

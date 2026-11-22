@@ -30,6 +30,7 @@ ull-esp-rs/
 └── examples/
     ├── blinky/
     ├── http-ota/
+    ├── ota-layout/
     └── sht3x-ssd1306/
 ```
 
@@ -37,8 +38,8 @@ ull-esp-rs/
 
 ## Workspace Packages
 
-- `ull-esp-core`: hardware-free logic (otadata rules, image header checks, OTA signature verification, HTTP response parsing). Builds and tests on the host.
-- `ull-esp-platform`: reusable runtime, Wi-Fi, flash, OTA, and peripheral helpers for ESP32 projects using Embassy.
+- `ull-esp-core`: hardware-free logic (otadata rules, image header and app descriptor checks, OTA signature verification, HTTP response parsing, the fleet check-in protocol). Builds and tests on the host.
+- `ull-esp-platform`: reusable runtime, Wi-Fi, flash, OTA, fleet agent, and peripheral helpers for ESP32 projects using Embassy.
 - `ull-esp-board-devkit-v1`: ESP32 DevKit V1 board mapping and convenience helpers built on `ull-esp-platform`.
 
 ## API Direction
@@ -75,8 +76,29 @@ Lower-level platform helpers remain available under module-qualified paths such 
 ## Examples
 
 - `examples/blinky`: smallest board smoke test for runtime startup and the status LED.
-- `examples/sht3x-ssd1306`: end-to-end example using Wi-Fi, shared I2C, SHT3x, and SSD1306.
-- `examples/http-ota`: Device-Pull OTA example with example-scoped fleet polling on top of `ull-esp-platform::ota`.
+- `examples/sht3x-ssd1306`: fleet node: SHT3x readings on an SSD1306 and reported to the ull-fleet server, with signed OTA updates.
+- `examples/http-ota`: the fleet agent alone (heartbeats and OTA), no sensors.
+- `examples/ota-layout`: bootloader and partition table for the OTA examples, first-flash and update-image commands, install checks.
+
+## Fleet agent
+
+`ull_esp_platform::fleet::Agent` talks to
+[ull-fleet-rs](https://github.com/ullnorse/ull-fleet-rs): it checks in every
+30 s with firmware identity, Wi-Fi signal and the latest metrics, installs an
+update when the server offers one, and confirms or rolls back the new image.
+
+```rust
+ull_esp_platform::firmware_app_desc!(); // version and secure_version per build
+
+static METRICS: Metrics<2> = Metrics::new();
+
+let agent = Agent::new(fleet_config, Firmware::from_app_desc(&ESP_APP_DESC), OTA_PUBLIC_KEY, flash);
+// in a task: agent.run(stack, &METRICS).await
+METRICS.set("temperature_c", 21.5);
+```
+
+`firmware_app_desc!` needs `export_firmware_identity()` from
+`examples/build_support.rs` in the crate's `build.rs`.
 
 Examples that need compile-time configuration keep their own `.env.example`
 and local `.env`, loaded by that example's `build.rs`. Those values are baked
