@@ -1,4 +1,3 @@
-use embedded_storage::nor_flash::NorFlash;
 use esp_bootloader_esp_idf::ota::OtaImageState;
 use esp_bootloader_esp_idf::partitions::{
     AppPartitionSubType, PARTITION_TABLE_MAX_LEN, read_partition_table,
@@ -71,6 +70,6 @@ pub fn erase_target_partition(
     flash: &mut FlashStorage<'_>,
     target: &UpdateTarget,
 ) -> Result<(), OtaError> {
-    NorFlash::erase(flash, target.offset, target.offset + target.size)?;
+    flash.erase(target.offset, target.offset + target.size)?;
     Ok(())
 }

@@ -23,7 +23,6 @@ embassy-executor.workspace = true
 embassy-net.workspace = true
 embassy-sync.workspace = true
 embassy-time.workspace = true
-embedded-storage.workspace = true
 esp-alloc.workspace = true
 esp-bootloader-esp-idf.workspace = true
 esp-hal.workspace = true

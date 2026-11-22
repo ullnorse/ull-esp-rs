@@ -19,7 +19,7 @@ pub use wifi::WifiStation;
 
 pub struct RuntimeParts {
     pub timg0: esp_hal::peripherals::TIMG0<'static>,
-    pub sw_interrupt: esp_hal::peripherals::SW_INTERRUPT<'static>,
+    pub cpu_int0: esp_hal::peripherals::FROM_CPU_INTR0<'static>,
 }
 
 pub struct Board {
@@ -34,7 +34,7 @@ pub struct Board {
 
 impl RuntimeParts {
     pub fn start(self) {
-        ull_esp_platform::runtime::start(self.timg0, self.sw_interrupt);
+        ull_esp_platform::runtime::start(self.timg0, self.cpu_int0);
     }
 }
 
@@ -47,7 +47,7 @@ impl Board {
         let peripherals = esp_hal::init(config);
         let esp_hal::peripherals::Peripherals {
             TIMG0: timg0,
-            SW_INTERRUPT: sw_interrupt,
+            FROM_CPU_INTR0: cpu_int0,
             I2C0: i2c0,
             SPI2: spi2,
             UART2: uart2,
@@ -66,10 +66,7 @@ impl Board {
         } = peripherals;
 
         Self {
-            runtime: Some(RuntimeParts {
-                timg0,
-                sw_interrupt,
-            }),
+            runtime: Some(RuntimeParts { timg0, cpu_int0 }),
             flash: Some(flash),
             wifi: Some(wifi::WifiParts { peripheral: wifi }),
             i2c0: Some(i2c::I2c0Parts {

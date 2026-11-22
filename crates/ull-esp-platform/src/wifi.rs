@@ -7,7 +7,7 @@ use static_cell::StaticCell;
 use crate::config::{WifiConfig, station_wifi_configuration};
 use crate::error::EspError;
 
-pub type WifiRunner = embassy_net::Runner<'static, WifiDevice<'static>>;
+pub type WifiRunner = embassy_net::Runner<'static, WifiDevice>;
 
 pub struct StationNetworkConfig {
     stack: NetConfig,
@@ -63,9 +63,9 @@ pub fn init_station<const SOCKETS: usize>(
     resources: &'static WifiStackResources<SOCKETS>,
     config: StationNetworkConfig,
 ) -> Result<WifiStackParts, EspError> {
-    let (controller, interfaces) = esp_radio::wifi::new(wifi, Default::default())?;
+    let controller = WifiController::new(wifi, Default::default())?;
     let (stack, runner) = embassy_net::new(
-        interfaces.station,
+        WifiDevice::station(),
         config.stack,
         resources.stack.init(StackResources::new()),
         seed,
@@ -90,7 +90,7 @@ pub fn configure(
     controller: &mut WifiController<'static>,
     config: &WifiConfig<'_>,
 ) -> Result<(), EspError> {
-    let config = station_wifi_configuration(config);
+    let config = station_wifi_configuration(config)?;
     controller.set_config(&config)?;
     Ok(())
 }

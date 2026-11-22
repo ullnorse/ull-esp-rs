@@ -1,5 +1,5 @@
 use esp_hal::clock::CpuClock;
-use esp_hal::peripherals::{SW_INTERRUPT, TIMG0};
+use esp_hal::peripherals::{FROM_CPU_INTR0, TIMG0};
 use esp_hal::timer::timg::TimerGroup;
 
 pub fn max_clock_config() -> esp_hal::Config {
@@ -14,8 +14,7 @@ pub fn init_default_heap() {
     esp_alloc::heap_allocator!(size: 64 * 1024);
 }
 
-pub fn start(timg0: TIMG0<'static>, sw_interrupt: SW_INTERRUPT<'static>) {
+pub fn start(timg0: TIMG0<'static>, int0: FROM_CPU_INTR0<'static>) {
     let timg0 = TimerGroup::new(timg0);
-    let sw_interrupt = esp_hal::interrupt::software::SoftwareInterruptControl::new(sw_interrupt);
-    esp_rtos::start(timg0.timer0, sw_interrupt.software_interrupt0);
+    esp_rtos::start(timg0.timer0, int0);
 }

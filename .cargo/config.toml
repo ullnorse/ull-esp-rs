@@ -3,6 +3,10 @@ runner = "espflash flash --monitor --baud 921600 --chip esp32"
 
 [env]
 ESP_LOG = "info"
+# esp-hal 1.2 defaults the ESP32 minimum chip revision to v3.0 (300). The
+# DevKit V1 on hand is v1.0, so allow it; this also keeps esp-hal's
+# workarounds for older silicon compiled in.
+ESP_HAL_CONFIG_MIN_CHIP_REVISION = "100"
 
 [build]
 rustflags = [

@@ -1,4 +1,3 @@
-use embedded_storage::nor_flash::NorFlash;
 use esp_bootloader_esp_idf::ota::OtaImageState;
 use esp_bootloader_esp_idf::partitions::AppPartitionSubType;
 use esp_storage::FlashStorage;
@@ -57,7 +56,7 @@ impl PartitionWriter {
         }
 
         let erase_len = align_up(image_size, FLASH_SECTOR_SIZE as u32);
-        NorFlash::erase(flash, target.offset, target.offset + erase_len)?;
+        flash.erase(target.offset, target.offset + erase_len)?;
 
         Ok(Self {
             target,
@@ -118,7 +117,7 @@ impl PartitionWriter {
     }
 
     fn flush_sector(&mut self, flash: &mut FlashStorage<'_>) -> Result<(), OtaError> {
-        NorFlash::write(flash, self.next_offset, &self.buffer.bytes)?;
+        flash.write_nor(self.next_offset, &self.buffer.bytes)?;
         self.next_offset += FLASH_SECTOR_SIZE as u32;
         self.buffer.bytes.fill(0xff);
         self.buffered_bytes = 0;

@@ -1,4 +1,3 @@
-use embedded_storage::{ReadStorage, Storage};
 use esp_bootloader_esp_idf::ota::OtaImageState;
 use esp_bootloader_esp_idf::partitions::{
     AppPartitionSubType, DataPartitionSubType, FlashRegion, PartitionEntry, PartitionTable,
@@ -33,7 +32,7 @@ pub(super) fn align_up(value: u32, alignment: u32) -> u32 {
 }
 
 pub(super) fn app_partition_subtype(
-    entry: PartitionEntry<'_>,
+    entry: PartitionEntry,
 ) -> Result<AppPartitionSubType, OtaError> {
     match entry.partition_type() {
         PartitionType::App(subtype) => Ok(subtype),
@@ -141,7 +140,7 @@ pub(super) fn read_otadata_entries(
     let ota_partition = pt
         .find_partition(PartitionType::Data(DataPartitionSubType::Ota))?
         .ok_or(esp_bootloader_esp_idf::partitions::Error::Invalid)?;
-    let mut ota_partition = ota_partition.as_embedded_storage(flash);
+    let mut ota_partition = ota_partition.as_flash_region(flash);
 
     Ok((
         read_ota_select_entry(&mut ota_partition, 0)?,
@@ -225,7 +224,7 @@ pub(super) fn next_ota_partition(
 }
 
 fn read_ota_select_entry(
-    ota_partition: &mut FlashRegion<'_, FlashStorage<'_>>,
+    ota_partition: &mut FlashRegion<'_, '_>,
     offset: u32,
 ) -> Result<RawOtaSelectEntry, OtaError> {
     let mut bytes = [0u8; OTA_DATA_SLOT_LEN];
@@ -247,7 +246,7 @@ fn write_otadata_entry(
     let ota_partition = pt
         .find_partition(PartitionType::Data(DataPartitionSubType::Ota))?
         .ok_or(esp_bootloader_esp_idf::partitions::Error::Invalid)?;
-    let mut ota_partition = ota_partition.as_embedded_storage(flash);
+    let mut ota_partition = ota_partition.as_flash_region(flash);
     let bytes = encode_ota_select_entry(entry);
     ota_partition.write(ota_slot_offset(slot), &bytes)?;
     Ok(())

@@ -1,6 +1,7 @@
-use alloc::string::String as AllocString;
-
-use esp_radio::wifi::{AuthenticationMethod, Config as WifiConfiguration, sta::StationConfig};
+use esp_radio::wifi::{
+    AuthenticationMethodConfig, Config as WifiConfiguration, Password, Ssid, WifiError,
+    sta::StationConfig,
+};
 
 #[derive(Copy, Clone, Debug)]
 pub struct WifiConfig<'a> {
@@ -14,15 +15,20 @@ impl<'a> WifiConfig<'a> {
     }
 }
 
-pub(crate) fn station_wifi_configuration(config: &WifiConfig<'_>) -> WifiConfiguration {
-    WifiConfiguration::Station(
+/// Builds the station config. esp-radio rejects an SSID over 32 bytes or an
+/// oversized password instead of truncating it.
+pub(crate) fn station_wifi_configuration(
+    config: &WifiConfig<'_>,
+) -> Result<WifiConfiguration, WifiError> {
+    let authentication = if config.password.is_empty() {
+        AuthenticationMethodConfig::Open
+    } else {
+        AuthenticationMethodConfig::Wpa2Personal(Password::try_from(config.password)?)
+    };
+
+    Ok(WifiConfiguration::Station(
         StationConfig::default()
-            .with_ssid(config.ssid)
-            .with_password(AllocString::from(config.password))
-            .with_auth_method(if config.password.is_empty() {
-                AuthenticationMethod::None
-            } else {
-                AuthenticationMethod::Wpa2Personal
-            }),
-    )
+            .with_ssid(Ssid::try_from(config.ssid)?)
+            .with_authentication(authentication),
+    ))
 }
