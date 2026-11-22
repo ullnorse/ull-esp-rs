@@ -63,3 +63,8 @@ is reproducible. It skips a slot whose `otadata` state is invalid (checked on
 hardware: an update that could not reach the server rolled back to the previous
 slot). eFuse anti-rollback is not used; the `secure_version` check above is
 done by the running firmware.
+
+Limit: this bootloader leaves a new image in state `new` instead of moving it to
+`pending_verify`, so it does not roll back by itself. An image that hangs or
+crashes before its agent runs stays selected and needs a USB reflash. Closing
+this needs a bootloader built with `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`.
