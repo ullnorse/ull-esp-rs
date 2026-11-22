@@ -23,6 +23,7 @@ This repository sits between app code and device drivers:
 ```text
 ull-esp-rs/
 ├── crates/
+│   ├── ull-esp-core/
 │   └── ull-esp-platform/
 ├── boards/
 │   └── esp32-devkit-v1/
@@ -36,6 +37,7 @@ ull-esp-rs/
 
 ## Workspace Packages
 
+- `ull-esp-core`: hardware-free logic (otadata rules, image header checks, OTA signature verification, HTTP response parsing). Builds and tests on the host.
 - `ull-esp-platform`: reusable runtime, Wi-Fi, flash, OTA, and peripheral helpers for ESP32 projects using Embassy.
 - `ull-esp-board-devkit-v1`: ESP32 DevKit V1 board mapping and convenience helpers built on `ull-esp-platform`.
 
@@ -46,10 +48,13 @@ The intended shape is explicit parts over framework-style wrappers:
 - `ull-esp-platform` owns generic ESP bring-up under module-qualified APIs like `runtime`, `wifi`, `flash`, `ota`, `i2c`, `spi`, `uart`, `config`, and `error`.
 - `ull-esp-board-devkit-v1` owns DevKit V1 pin mapping and board-specific convenience composition on top of `ull-esp-platform`.
 
-Typical app code can stay on the board convenience path:
+Typical app code can stay on the board convenience path. `Board::init()` keeps
+only the peripherals the board maps; use `take_board!` when the app needs others:
 
 ```rust
-let mut board = ull_esp_board_devkit_v1::Board::init();
+let peripherals = esp_hal::init(Board::default_config());
+let mut board = ull_esp_board_devkit_v1::take_board!(peripherals);
+let adc = peripherals.ADC1; // not mapped by the board, still usable
 board.start_runtime()?;
 
 let i2c_bus = board.take_i2c0_shared()?;
@@ -60,6 +65,10 @@ let uart = board.take_uart2()?;
 let wifi_config = ull_esp_platform::config::WifiConfig::new("ssid", "password");
 let wifi = board.take_wifi_station(spawner, &wifi_config)?;
 ```
+
+Board defaults: I2C0 runs at 400 kHz (`take_i2c0_with_config` for 100 kHz parts),
+and `take_wifi_station` reserves 3 sockets (`take_wifi_station_with` takes your
+own `WifiStackResources<N>`).
 
 Lower-level platform helpers remain available under module-qualified paths such as `ull_esp_platform::i2c::init_i2c`, `ull_esp_platform::spi::init_spi`, and `ull_esp_platform::uart::init_uart`.
 
@@ -91,4 +100,11 @@ cargo check -p ull-esp-platform -p ull-esp-board-devkit-v1 -p blinky -p http-ota
 
 # full workspace check; requires sibling ull-drivers-rs and example env setup
 cargo check --workspace
+
+# host unit tests for the hardware-free logic (otadata, signatures, HTTP)
+cargo +stable test -p ull-esp-core --target x86_64-unknown-linux-gnu
 ```
+
+The Xtensa-only rustflags live under `[target.xtensa-esp32-none-elf]` in
+`.cargo/config.toml`, and stable Cargo ignores the `[unstable]` build-std
+table, so host builds of `ull-esp-core` work from the workspace root.

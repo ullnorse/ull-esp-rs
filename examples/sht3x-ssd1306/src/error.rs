@@ -6,14 +6,8 @@ pub enum AppError {
     BodyBufferTooSmall,
     #[error("request buffer too small")]
     RequestBufferTooSmall,
-    #[error("tcp connect failed")]
-    TcpConnectFailed,
-    #[error("tcp write failed")]
-    TcpWriteFailed,
-    #[error("tcp flush failed")]
-    TcpFlushFailed,
-    #[error("invalid HTTP response")]
-    InvalidHttpResponse,
+    #[error(transparent)]
+    Http(#[from] ull_esp_platform::http::HttpClientError),
     #[error("http request failed with status {0}")]
     HttpStatus(u16),
     #[error("missing READINGS_ADDR or legacy READINGS_HOST")]

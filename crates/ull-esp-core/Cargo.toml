@@ -1,0 +1,16 @@
+[package]
+name = "ull-esp-core"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hardware-free OTA and HTTP logic for ull-esp-rs, testable on the host"
+categories = ["embedded", "no-std"]
+keywords = ["esp32", "ota", "embedded"]
+
+[lints]
+workspace = true
+
+[dependencies]
+ed25519-dalek = { workspace = true }

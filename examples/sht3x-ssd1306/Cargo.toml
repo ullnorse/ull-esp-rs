@@ -20,7 +20,6 @@ embassy-net.workspace = true
 embassy-sync.workspace = true
 embassy-time.workspace = true
 embedded-graphics.workspace = true
-embedded-io-async.workspace = true
 esp-bootloader-esp-idf.workspace = true
 esp-hal.workspace = true
 esp-radio.workspace = true

@@ -17,6 +17,16 @@ Copy `.env.example` to `.env` and set:
 - `WIFI_SSID`
 - `WIFI_PASSWORD`
 - `FLEET_BASE_URL` as `http://<ipv4>[:port]`
+- `OTA_PUBLIC_KEY`: the Ed25519 public key updates must be signed with (64 hex
+  digits). The build fails without it.
+
+Create the key pair once with the signer from the sibling `ull-fleet-rs` repo,
+and keep the secret key out of both repos:
+
+```bash
+cargo run --release -p ull-fleet-sign -- keygen ~/.config/ull-fleet/ota-signing.key
+# prints the public key: put it in .env as OTA_PUBLIC_KEY
+```
 
 For this POC, `FLEET_BASE_URL` must use a numeric IPv4 address. HTTPS and DNS are not wired yet.
 
@@ -79,6 +89,8 @@ The current device client expects `GET /api/update` to behave like this:
 - the response body must be the raw Application Image bytes
 - the response must include `Content-Length`
 - the response must include `X-Application-Image-Sha256`
+- the response must include `X-Application-Image-Ed25519`: the signature from
+  `ull-fleet-sign sign` (128 hex digits)
 - chunked transfer encoding is not supported
 
 The poll request currently sends only `GET /api/update` with a `Host` header. It
@@ -87,10 +99,12 @@ authorization.
 
 ## Backend Flow
 
-Upload a new image with:
+Sign and upload a new image with:
 
 ```bash
-curl -F file=@ota.bin http://127.0.0.1:3000/api/upload
+curl -H "Content-Type: application/octet-stream" \
+     -H "X-Application-Image-Ed25519: $(ull-fleet-sign sign ~/.config/ull-fleet/ota-signing.key ota.bin)" \
+     --data-binary @ota.bin http://127.0.0.1:3000/api/upload
 ```
 
 The device will pick it up on the next 10-second poll.
@@ -105,11 +119,28 @@ marks the running image invalid and reboots so the bootloader can roll back.
 
 Rollback remains driven by the ESP-IDF 2nd-stage bootloader state.
 
+## Install Checks
+
+In order, before anything is activated:
+
+1. The Ed25519 signature over the claimed SHA-256 verifies against
+   `OTA_PUBLIC_KEY`. Nothing is erased if it does not.
+2. The ESP image header and app descriptor magic, from the first 36 bytes.
+3. The byte count, and the SHA-256 of what was written equals the signed digest.
+
+The target slot is erased one 4 KiB sector at a time, right before each sector
+is written. If a download fails part-way, only the first sector of the target
+slot is erased, so the partial image cannot pass the bootloader's header check;
+the running image stays selected.
+
 ## Security Note
 
-The current example downloads firmware over plain HTTP and verifies only that
-the downloaded bytes match the SHA-256 digest provided in the same HTTP
-response. That checks transfer consistency, not trusted firmware authenticity.
+Images are signed offline and the device checks the signature with a key built
+into the firmware, so the fleet server cannot push an image the device accepts
+unless it was signed with the secret key. Transport is still plain HTTP, so the
+download can be observed, and an attacker can withhold or replay an older
+signed image (there is no version check yet). Flash encryption and secure boot
+are not enabled.
 
 ## Bootloader Note
 

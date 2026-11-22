@@ -2,6 +2,7 @@
 #![no_main]
 
 use embassy_executor::Spawner;
+use embassy_time::Timer;
 use ull_esp_board_devkit_v1::Board;
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -31,6 +32,6 @@ async fn main(_spawner: Spawner) {
     loop {
         led.toggle();
         log::info!("status led toggled");
-        board.sleep_ms(500).await;
+        Timer::after_millis(500).await;
     }
 }

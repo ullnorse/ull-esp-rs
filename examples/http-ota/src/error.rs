@@ -12,24 +12,18 @@ pub enum AppError {
     InvalidFleetBaseUrl,
     #[error("request buffer too small")]
     RequestBufferTooSmall,
-    #[error("response buffer too small")]
-    ResponseBufferTooSmall,
-    #[error("tcp connect failed")]
-    TcpConnectFailed,
     #[error("tcp read failed")]
     TcpReadFailed,
-    #[error("tcp write failed")]
-    TcpWriteFailed,
-    #[error("tcp flush failed")]
-    TcpFlushFailed,
-    #[error("invalid HTTP response")]
-    InvalidHttpResponse,
-    #[error("invalid HTTP content-length")]
+    #[error("content-length does not fit in u32")]
     InvalidContentLength,
     #[error("missing HTTP content-length")]
     MissingContentLength,
-    #[error("invalid application image sha256")]
+    #[error("missing or invalid x-application-image-sha256 header")]
     InvalidApplicationImageSha256,
+    #[error("invalid x-application-image-ed25519 header")]
+    InvalidApplicationImageSignature,
+    #[error(transparent)]
+    Http(#[from] ull_esp_platform::http::HttpClientError),
     #[error("http request failed with status {0}")]
     HttpStatus(u16),
     #[error("failed to create {0} task")]

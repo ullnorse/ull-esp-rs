@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/ull-esp-core",
     "crates/ull-esp-platform",
     "boards/esp32-devkit-v1",
     "examples/sht3x-ssd1306",
@@ -20,6 +21,7 @@ embassy-executor = { version = "0.10.0", features = ["log"] }
 embassy-net = { version = "0.9.1", default-features = false, features = ["dhcpv4", "medium-ethernet", "proto-ipv4", "tcp", "log"] }
 embassy-sync = "0.8.0"
 embassy-time = { version = "0.5.1", features = ["log"] }
+ed25519-dalek = { version = "2.2", default-features = false }
 embedded-graphics = "0.8"
 embedded-hal = "1.0.0"
 embedded-hal-async = "1.0.0"

@@ -1,14 +1,11 @@
 use esp_bootloader_esp_idf::ota::OtaImageState;
-use esp_bootloader_esp_idf::partitions::{
-    AppPartitionSubType, PARTITION_TABLE_MAX_LEN, PartitionType, read_partition_table,
-};
+use esp_bootloader_esp_idf::partitions::AppPartitionSubType;
 use esp_storage::FlashStorage;
+use ull_esp_core::otadata::{self, SelectEntry};
 
 use super::OtaError;
 use super::shared::{
-    RawOtaSelectEntry, active_otadata_slot, app_partition_subtype, count_ota_partitions,
-    is_ota_partition, is_valid_otadata_slot, ota_sequence_crc, raw_otadata_status,
-    read_otadata_entries, update_active_otadata_state, write_selected_otadata,
+    layout, ota_number, ota_partition, read_entries, with_partition_table, write_entry,
 };
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -45,70 +42,52 @@ pub struct OtaDebugStatus {
 }
 
 pub fn boot_status(flash: &mut FlashStorage<'_>) -> Result<BootStatus, OtaError> {
-    let (booted_partition, otadata_status) = {
-        let mut pt_buffer = [0u8; PARTITION_TABLE_MAX_LEN];
-        let pt = read_partition_table(flash, &mut pt_buffer)?;
-        let ota_partition_count = count_ota_partitions(&pt);
+    with_partition_table(flash, |flash, pt| {
+        let layout = layout(pt)?;
+        let selected = if layout.ota_partition_count == 0 {
+            None
+        } else {
+            otadata::selected_partition(&read_entries(flash, pt)?, layout.ota_partition_count)
+        };
 
-        let booted_partition = pt
-            .booted_partition()?
-            .map(app_partition_subtype)
-            .transpose()?;
-        let otadata_status = raw_otadata_status(flash, &pt, ota_partition_count)?;
-
-        (booted_partition, otadata_status)
-    };
-
-    Ok(BootStatus {
-        booted_partition,
-        selected_partition: otadata_status.selected_partition,
-        ota_state: otadata_status.ota_state,
+        Ok(BootStatus {
+            booted_partition: layout.booted,
+            selected_partition: selected
+                .map(|(number, _)| ota_partition(number))
+                .transpose()?,
+            ota_state: selected.and_then(|(_, state)| OtaImageState::try_from(state).ok()),
+        })
     })
 }
 
+/// On a layout without a factory partition and with blank otadata (fresh
+/// flash), marks the running OTA partition as selected and valid. Returns
+/// whether it wrote anything.
 pub fn bootstrap_factoryless_otadata(flash: &mut FlashStorage<'_>) -> Result<bool, OtaError> {
-    let (booted_partition, factory_present, otadata_status, ota_partition_count) = {
-        let mut pt_buffer = [0u8; PARTITION_TABLE_MAX_LEN];
-        let pt = read_partition_table(flash, &mut pt_buffer)?;
-        let ota_partition_count = count_ota_partitions(&pt);
+    with_partition_table(flash, |flash, pt| {
+        let layout = layout(pt)?;
+        if layout.factory_present || layout.ota_partition_count == 0 {
+            return Ok(false);
+        }
 
-        let booted_partition = pt
-            .booted_partition()?
-            .map(app_partition_subtype)
-            .transpose()?;
-        let factory_present = pt
-            .find_partition(PartitionType::App(AppPartitionSubType::Factory))?
-            .is_some();
-        let otadata_status = raw_otadata_status(flash, &pt, ota_partition_count)?;
+        let entries = read_entries(flash, pt)?;
+        if otadata::active_slot(&entries).is_some() {
+            return Ok(false);
+        }
 
-        (
-            booted_partition,
-            factory_present,
-            otadata_status,
-            ota_partition_count,
-        )
-    };
-
-    if factory_present || otadata_status.selected_partition.is_some() {
-        return Ok(false);
-    }
-
-    let booted_partition = booted_partition.ok_or(OtaError::NoBootablePartition)?;
-    if !is_ota_partition(booted_partition) {
-        return Err(OtaError::NoBootablePartition);
-    }
-
-    let mut pt_buffer = [0u8; PARTITION_TABLE_MAX_LEN];
-    let pt = read_partition_table(flash, &mut pt_buffer)?;
-    write_selected_otadata(
-        flash,
-        &pt,
-        ota_partition_count,
-        booted_partition,
-        OtaImageState::Valid,
-    )?;
-
-    Ok(true)
+        let booted = layout
+            .booted
+            .and_then(ota_number)
+            .ok_or(OtaError::NoBootablePartition)?;
+        let write = otadata::select_partition(
+            &entries,
+            booted,
+            layout.ota_partition_count,
+            OtaImageState::Valid as u32,
+        );
+        write_entry(flash, pt, write)?;
+        Ok(true)
+    })
 }
 
 pub fn confirm_running_image(flash: &mut FlashStorage<'_>) -> Result<(), OtaError> {
@@ -119,36 +98,37 @@ pub fn reject_running_image(flash: &mut FlashStorage<'_>) -> Result<(), OtaError
     mark_running_state(flash, OtaImageState::Invalid)
 }
 
+/// Sets the state of the active otadata entry.
 pub fn mark_running_state(
     flash: &mut FlashStorage<'_>,
     state: OtaImageState,
 ) -> Result<(), OtaError> {
-    let mut pt_buffer = [0u8; PARTITION_TABLE_MAX_LEN];
-    let pt = read_partition_table(flash, &mut pt_buffer)?;
-    let ota_partition_count = count_ota_partitions(&pt);
-    update_active_otadata_state(flash, &pt, ota_partition_count, state)?;
-    Ok(())
-}
-
-pub fn otadata_debug_status(flash: &mut FlashStorage<'_>) -> Result<OtaDebugStatus, OtaError> {
-    let mut pt_buffer = [0u8; PARTITION_TABLE_MAX_LEN];
-    let pt = read_partition_table(flash, &mut pt_buffer)?;
-    let (slot0, slot1) = read_otadata_entries(flash, &pt)?;
-
-    Ok(OtaDebugStatus {
-        slot0: ota_slot_debug(slot0),
-        slot1: ota_slot_debug(slot1),
-        active_slot: active_otadata_slot(slot0, slot1),
+    with_partition_table(flash, |flash, pt| {
+        let entries = read_entries(flash, pt)?;
+        let write = otadata::set_active_state(&entries, state as u32)
+            .ok_or(esp_bootloader_esp_idf::partitions::Error::InvalidState)?;
+        write_entry(flash, pt, write)
     })
 }
 
-fn ota_slot_debug(slot: RawOtaSelectEntry) -> OtaSlotDebug {
+pub fn otadata_debug_status(flash: &mut FlashStorage<'_>) -> Result<OtaDebugStatus, OtaError> {
+    with_partition_table(flash, |flash, pt| {
+        let entries = read_entries(flash, pt)?;
+        Ok(OtaDebugStatus {
+            slot0: slot_debug(entries[0]),
+            slot1: slot_debug(entries[1]),
+            active_slot: otadata::active_slot(&entries),
+        })
+    })
+}
+
+fn slot_debug(entry: SelectEntry) -> OtaSlotDebug {
     OtaSlotDebug {
-        sequence: slot.ota_seq,
-        state_raw: slot.ota_state_raw,
-        state: OtaImageState::try_from(slot.ota_state_raw).ok(),
-        crc: slot.crc,
-        expected_crc: ota_sequence_crc(slot.ota_seq),
-        valid: is_valid_otadata_slot(slot),
+        sequence: entry.sequence,
+        state_raw: entry.state,
+        state: OtaImageState::try_from(entry.state).ok(),
+        crc: entry.crc,
+        expected_crc: otadata::sequence_crc(entry.sequence),
+        valid: entry.is_valid(),
     }
 }

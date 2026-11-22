@@ -16,6 +16,7 @@ The crate layout should follow this dependency direction:
 
 ```text
 drivers -> generic only
+core -> hardware-free logic (ull-esp-core), host-testable
 platform -> ESP mechanics
 board -> BSP on top of platform
 app -> product policy and behavior

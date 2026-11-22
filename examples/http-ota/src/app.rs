@@ -6,17 +6,15 @@ use embassy_net::tcp::TcpSocket;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer, with_timeout};
-use embedded_io_async::Write as _;
 use heapless::String as HeaplessString;
 use static_cell::StaticCell;
 use ull_esp_board_devkit_v1::{Board, StatusLed};
 use ull_esp_platform::flash::FlashStorageDevice;
 use ull_esp_platform::ota::{self, BootStatus, ExpectedImage, InstalledImage, UpdateInstaller};
-use ull_esp_platform::runtime;
+use ull_esp_platform::{hex, http, runtime};
 
-use crate::config::{AppConfig, FleetConfig};
+use crate::config::{AppConfig, FleetConfig, OTA_PUBLIC_KEY};
 use crate::error::AppError;
-use crate::http::{close_socket, read_response_head};
 
 const TCP_BUFFER_SIZE: usize = 2048;
 const HTTP_HEAD_BUFFER_SIZE: usize = 1024;
@@ -28,6 +26,8 @@ const REBOOT_DELAY: Duration = Duration::from_secs(1);
 const SOCKET_TIMEOUT: Duration = Duration::from_secs(30);
 const STATUS_LED_BLINK_PERIOD: Duration = Duration::from_millis(5000);
 const UPDATE_PATH: &str = "/api/update";
+const SHA256_HEADER: &str = "x-application-image-sha256";
+const SIGNATURE_HEADER: &str = "x-application-image-ed25519";
 
 static OTA_CLIENT_STATE: StaticCell<OtaClientState> = StaticCell::new();
 
@@ -146,7 +146,7 @@ async fn update_poll_task(
     log::info!(
         "Polling {} via http://{} every 10s",
         UPDATE_PATH,
-        config.endpoint.authority,
+        config.authority,
     );
 
     loop {
@@ -174,7 +174,7 @@ async fn poll_for_update(
     write!(
         request,
         "GET {} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n",
-        UPDATE_PATH, config.endpoint.authority,
+        UPDATE_PATH, config.authority,
     )
     .map_err(|_| AppError::RequestBufferTooSmall)?;
 
@@ -183,51 +183,44 @@ async fn poll_for_update(
     let mut head_buffer = [0u8; HTTP_HEAD_BUFFER_SIZE];
     let mut read_buffer = [0u8; READ_BUFFER_SIZE];
     let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-
     socket.set_timeout(Some(SOCKET_TIMEOUT));
-    socket
-        .connect((config.endpoint.server_ip, config.endpoint.port))
-        .await
-        .map_err(|_| AppError::TcpConnectFailed)?;
-    socket
-        .write_all(request.as_bytes())
-        .await
-        .map_err(|_| AppError::TcpWriteFailed)?;
-    socket.flush().await.map_err(|_| AppError::TcpFlushFailed)?;
 
-    let (head, received) = read_response_head(&mut socket, &mut head_buffer).await?;
-    if head.status == 204 {
-        close_socket(&mut socket).await;
-        log::info!("no update available");
-        return Ok(());
+    let result = async {
+        http::send_request(
+            &mut socket,
+            (config.server_ip, config.port),
+            request.as_bytes(),
+        )
+        .await?;
+        let (head, initial_body) = http::read_response_head(&mut socket, &mut head_buffer).await?;
+
+        if head.status == 204 {
+            log::info!("no update available");
+            return Ok(None);
+        }
+        if !head.is_success() {
+            return Err(AppError::HttpStatus(head.status));
+        }
+
+        let expected = expected_image(&head)?;
+        let mut flash = state.flash.lock().await;
+        let installed = install_pending_update(
+            &mut socket,
+            &mut flash,
+            initial_body,
+            expected,
+            &mut read_buffer,
+        )
+        .await?;
+        log_otadata_debug(&mut flash);
+        Ok(Some(installed))
     }
-
-    if !(200..300).contains(&head.status) {
-        close_socket(&mut socket).await;
-        return Err(AppError::HttpStatus(head.status));
-    }
-
-    let body_length = head.content_length.ok_or(AppError::MissingContentLength)?;
-    let content_length = u32::try_from(body_length).map_err(|_| AppError::InvalidContentLength)?;
-    let expected_digest = head
-        .application_image_sha256
-        .ok_or(AppError::InvalidApplicationImageSha256)?;
-
-    let initial_body = &head_buffer[head.header_end..received];
-    let mut flash = state.flash.lock().await;
-    let install_result = install_pending_update(
-        &mut socket,
-        &mut flash,
-        initial_body,
-        ExpectedImage::new(content_length, expected_digest),
-        &mut read_buffer,
-    )
     .await;
+    http::close(&mut socket).await;
 
-    close_socket(&mut socket).await;
-    let installed = install_result?;
-
-    log_otadata_debug(&mut flash);
+    let Some(installed) = result? else {
+        return Ok(());
+    };
 
     log::info!(
         "application image activated in {:?}; rebooting",
@@ -238,6 +231,27 @@ async fn poll_for_update(
     esp_hal::system::software_reset();
 }
 
+fn expected_image(head: &http::ResponseHead<'_>) -> Result<ExpectedImage, AppError> {
+    let size = head
+        .content_length()
+        .map_err(http::HttpClientError::from)?
+        .ok_or(AppError::MissingContentLength)?;
+    let size = u32::try_from(size).map_err(|_| AppError::InvalidContentLength)?;
+    let sha256 = head
+        .header(SHA256_HEADER)
+        .and_then(hex::decode::<32>)
+        .ok_or(AppError::InvalidApplicationImageSha256)?;
+
+    let expected = ExpectedImage::new(size, sha256);
+    // A missing signature is left for the installer to reject, with its own error.
+    match head.header(SIGNATURE_HEADER) {
+        None => Ok(expected),
+        Some(value) => hex::decode::<{ ota::SIGNATURE_LEN }>(value)
+            .map(|signature| expected.with_signature(signature))
+            .ok_or(AppError::InvalidApplicationImageSignature),
+    }
+}
+
 async fn install_pending_update(
     socket: &mut TcpSocket<'_>,
     flash: &mut FlashStorageDevice,
@@ -245,7 +259,7 @@ async fn install_pending_update(
     expected: ExpectedImage,
     read_buffer: &mut [u8],
 ) -> Result<InstalledImage, AppError> {
-    let mut installer = UpdateInstaller::begin(flash, expected)?;
+    let mut installer = UpdateInstaller::begin(flash, expected, Some(&OTA_PUBLIC_KEY))?;
 
     log::info!(
         "downloading pending OTA image ({} bytes) into {:?}",

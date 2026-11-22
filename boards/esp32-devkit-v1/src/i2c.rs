@@ -3,6 +3,7 @@ use crate::pins::I2c0Pins;
 use esp_hal::{
     Async,
     i2c::master::{Config, ConfigError, I2c},
+    time::Rate,
 };
 
 use super::{Board, BoardError};
@@ -27,8 +28,16 @@ impl I2c0Parts {
 }
 
 impl Board {
+    /// The default I2C0 config: 400 kHz fast mode. The DevKit V1 has no I2C
+    /// pull-ups of its own; this relies on the usual 4.7-10 kOhm pull-ups on
+    /// breakout modules. Use `take_i2c0_with_config` for 100 kHz parts or long
+    /// wires.
+    pub fn i2c0_default_config() -> Config {
+        Config::default().with_frequency(Rate::from_khz(400))
+    }
+
     pub fn take_i2c0(&mut self) -> Result<I2c<'static, Async>, BoardError> {
-        self.take_i2c0_with_config(Config::default())
+        self.take_i2c0_with_config(Self::i2c0_default_config())
     }
 
     pub fn take_i2c0_with_config(
@@ -42,7 +51,7 @@ impl Board {
     pub fn take_i2c0_shared(
         &mut self,
     ) -> Result<&'static ull_esp_platform::i2c::SharedI2cBus, BoardError> {
-        self.take_i2c0_shared_with_config(Config::default())
+        self.take_i2c0_shared_with_config(Self::i2c0_default_config())
     }
 
     pub fn take_i2c0_shared_with_config(

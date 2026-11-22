@@ -2,8 +2,8 @@ use core::fmt::Write;
 
 use embassy_net::{Stack, tcp::TcpSocket};
 use embassy_time::Duration;
-use embedded_io_async::Write as _;
 use heapless::String as HeaplessString;
+use ull_esp_platform::http;
 
 use crate::app::APP_RESOURCES;
 use crate::app::{Reading, ReadingsConfig};
@@ -42,7 +42,7 @@ async fn post_reading(
     let mut request: HeaplessString<384> = HeaplessString::new();
     let mut rx_buffer = [0u8; 1024];
     let mut tx_buffer = [0u8; 1024];
-    let mut response_buffer = [0u8; 256];
+    let mut response_buffer = [0u8; 512];
 
     write!(
         request,
@@ -57,46 +57,24 @@ async fn post_reading(
 
     let mut socket = TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
     socket.set_timeout(Some(Duration::from_secs(5)));
-    socket
-        .connect((config.server_ip, config.port))
-        .await
-        .map_err(|_| AppError::TcpConnectFailed)?;
-    socket
-        .write_all(request.as_bytes())
-        .await
-        .map_err(|_| AppError::TcpWriteFailed)?;
-    socket.flush().await.map_err(|_| AppError::TcpFlushFailed)?;
 
-    let mut received = 0;
-    let status = loop {
-        if received == response_buffer.len() {
-            return Err(AppError::InvalidHttpResponse);
-        }
-
-        let count = socket
-            .read(&mut response_buffer[received..])
-            .await
-            .map_err(|_| AppError::InvalidHttpResponse)?;
-
-        if count == 0 {
-            return Err(AppError::InvalidHttpResponse);
-        }
-
-        received += count;
-
-        if response_buffer[..received].contains(&b'\n') {
-            break parse_http_status(&response_buffer[..received])?;
-        }
-    };
-
-    socket.close();
-    let _ = socket.flush().await;
-
-    if !(200..300).contains(&status) {
-        return Err(AppError::HttpStatus(status));
+    let result = async {
+        http::send_request(
+            &mut socket,
+            (config.server_ip, config.port),
+            request.as_bytes(),
+        )
+        .await?;
+        let (head, _) = http::read_response_head(&mut socket, &mut response_buffer).await?;
+        Ok::<_, AppError>(head.status)
     }
+    .await;
+    http::close(&mut socket).await;
 
-    Ok(())
+    match result? {
+        status if (200..300).contains(&status) => Ok(()),
+        status => Err(AppError::HttpStatus(status)),
+    }
 }
 
 fn json_body(reading: Reading) -> Result<HeaplessString<96>, AppError> {
@@ -110,19 +88,4 @@ fn json_body(reading: Reading) -> Result<HeaplessString<96>, AppError> {
     .map_err(|_| AppError::BodyBufferTooSmall)?;
 
     Ok(body)
-}
-
-fn parse_http_status(response: &[u8]) -> Result<u16, AppError> {
-    let status_line = response
-        .split(|byte| *byte == b'\n')
-        .next()
-        .ok_or(AppError::InvalidHttpResponse)?;
-    let status_line = status_line.strip_suffix(b"\r").unwrap_or(status_line);
-
-    status_line
-        .split(|byte| *byte == b' ')
-        .nth(1)
-        .and_then(|digits| core::str::from_utf8(digits).ok())
-        .and_then(|digits| digits.parse::<u16>().ok())
-        .ok_or(AppError::InvalidHttpResponse)
 }

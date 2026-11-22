@@ -10,26 +10,16 @@ mod wifi;
 
 use pins::{BoardPins, I2c0Pins, Spi2Pins, Uart2Pins};
 
-use embassy_time::{Duration, Timer};
+use esp_hal::peripherals as p;
 use esp_hal::rng::Rng;
 
 pub use error::BoardError;
 pub use led::StatusLed;
-pub use wifi::WifiStation;
+pub use wifi::{DEFAULT_WIFI_SOCKETS, WifiStation};
 
 pub struct RuntimeParts {
-    pub timg0: esp_hal::peripherals::TIMG0<'static>,
-    pub cpu_int0: esp_hal::peripherals::FROM_CPU_INTR0<'static>,
-}
-
-pub struct Board {
-    runtime: Option<RuntimeParts>,
-    flash: Option<esp_hal::peripherals::FLASH<'static>>,
-    wifi: Option<wifi::WifiParts>,
-    i2c0: Option<i2c::I2c0Parts>,
-    spi2: Option<spi::Spi2Parts>,
-    uart2: Option<uart::Uart2Parts>,
-    pins: BoardPins,
+    pub timg0: p::TIMG0<'static>,
+    pub cpu_int0: p::FROM_CPU_INTR0<'static>,
 }
 
 impl RuntimeParts {
@@ -38,62 +28,117 @@ impl RuntimeParts {
     }
 }
 
+/// The peripherals the DevKit V1 mapping uses. Build it with [`take_board!`],
+/// which moves only these fields out of `esp_hal::peripherals::Peripherals`.
+pub struct BoardParts {
+    pub timg0: p::TIMG0<'static>,
+    pub cpu_int0: p::FROM_CPU_INTR0<'static>,
+    pub flash: p::FLASH<'static>,
+    pub wifi: p::WIFI<'static>,
+    pub i2c0: p::I2C0<'static>,
+    pub spi2: p::SPI2<'static>,
+    pub uart2: p::UART2<'static>,
+    pub gpio2: p::GPIO2<'static>,
+    pub gpio5: p::GPIO5<'static>,
+    pub gpio16: p::GPIO16<'static>,
+    pub gpio17: p::GPIO17<'static>,
+    pub gpio18: p::GPIO18<'static>,
+    pub gpio19: p::GPIO19<'static>,
+    pub gpio21: p::GPIO21<'static>,
+    pub gpio22: p::GPIO22<'static>,
+    pub gpio23: p::GPIO23<'static>,
+}
+
+/// Moves the board's peripherals out of a `Peripherals` value and builds a
+/// [`Board`]. Every other field stays usable afterwards:
+///
+/// ```ignore
+/// let peripherals = esp_hal::init(Board::default_config());
+/// let mut board = ull_esp_board_devkit_v1::take_board!(peripherals);
+/// let adc = peripherals.ADC1; // not mapped by the board, still yours
+/// ```
+#[macro_export]
+macro_rules! take_board {
+    ($peripherals:ident) => {
+        $crate::Board::from_parts($crate::BoardParts {
+            timg0: $peripherals.TIMG0,
+            cpu_int0: $peripherals.FROM_CPU_INTR0,
+            flash: $peripherals.FLASH,
+            wifi: $peripherals.WIFI,
+            i2c0: $peripherals.I2C0,
+            spi2: $peripherals.SPI2,
+            uart2: $peripherals.UART2,
+            gpio2: $peripherals.GPIO2,
+            gpio5: $peripherals.GPIO5,
+            gpio16: $peripherals.GPIO16,
+            gpio17: $peripherals.GPIO17,
+            gpio18: $peripherals.GPIO18,
+            gpio19: $peripherals.GPIO19,
+            gpio21: $peripherals.GPIO21,
+            gpio22: $peripherals.GPIO22,
+            gpio23: $peripherals.GPIO23,
+        })
+    };
+}
+
+pub struct Board {
+    runtime: Option<RuntimeParts>,
+    flash: Option<p::FLASH<'static>>,
+    wifi: Option<wifi::WifiParts>,
+    i2c0: Option<i2c::I2c0Parts>,
+    spi2: Option<spi::Spi2Parts>,
+    uart2: Option<uart::Uart2Parts>,
+    pins: BoardPins,
+}
+
 impl Board {
+    /// Initializes esp-hal at max clock and keeps only the board's peripherals.
+    ///
+    /// The rest are dropped; use [`take_board!`] when the app needs any of them.
     pub fn init() -> Self {
-        Self::init_with_config(ull_esp_platform::runtime::max_clock_config())
+        let peripherals = esp_hal::init(Self::default_config());
+        take_board!(peripherals)
     }
 
-    pub fn init_with_config(config: esp_hal::Config) -> Self {
-        let peripherals = esp_hal::init(config);
-        let esp_hal::peripherals::Peripherals {
-            TIMG0: timg0,
-            FROM_CPU_INTR0: cpu_int0,
-            I2C0: i2c0,
-            SPI2: spi2,
-            UART2: uart2,
-            GPIO22: gpio22,
-            GPIO21: gpio21,
-            GPIO18: gpio18,
-            GPIO19: gpio19,
-            GPIO23: gpio23,
-            GPIO5: gpio5,
-            GPIO17: gpio17,
-            GPIO16: gpio16,
-            GPIO2: gpio2,
-            FLASH: flash,
-            WIFI: wifi,
-            ..
-        } = peripherals;
+    pub fn default_config() -> esp_hal::Config {
+        ull_esp_platform::runtime::max_clock_config()
+    }
 
+    pub fn from_parts(parts: BoardParts) -> Self {
         Self {
-            runtime: Some(RuntimeParts { timg0, cpu_int0 }),
-            flash: Some(flash),
-            wifi: Some(wifi::WifiParts { peripheral: wifi }),
+            runtime: Some(RuntimeParts {
+                timg0: parts.timg0,
+                cpu_int0: parts.cpu_int0,
+            }),
+            flash: Some(parts.flash),
+            wifi: Some(wifi::WifiParts {
+                peripheral: parts.wifi,
+            }),
             i2c0: Some(i2c::I2c0Parts {
-                controller: i2c0,
+                controller: parts.i2c0,
                 pins: I2c0Pins {
-                    scl: gpio22,
-                    sda: gpio21,
+                    scl: parts.gpio22,
+                    sda: parts.gpio21,
                 },
             }),
             spi2: Some(spi::Spi2Parts {
-                controller: spi2,
+                controller: parts.spi2,
                 pins: Spi2Pins {
-                    sck: gpio18,
-                    miso: gpio19,
-                    mosi: gpio23,
+                    sck: parts.gpio18,
+                    miso: parts.gpio19,
+                    mosi: parts.gpio23,
                 },
             }),
             uart2: Some(uart::Uart2Parts {
-                controller: uart2,
+                controller: parts.uart2,
                 pins: Uart2Pins {
-                    tx: gpio17,
-                    rx: gpio16,
+                    tx: parts.gpio17,
+                    rx: parts.gpio16,
                 },
             }),
             pins: BoardPins {
-                status_led: Some(gpio2),
-                spi2_cs: Some(gpio5),
+                status_led: Some(parts.gpio2),
+                spi2_cs: Some(parts.gpio5),
             },
         }
     }
@@ -114,14 +159,6 @@ impl Board {
     ) -> Result<ull_esp_platform::flash::FlashStorageDevice, BoardError> {
         let flash = self.flash.take().ok_or(BoardError::AlreadyTaken("flash"))?;
         Ok(ull_esp_platform::flash::init_flash_storage(flash))
-    }
-
-    pub async fn sleep(&self, duration: Duration) {
-        Timer::after(duration).await;
-    }
-
-    pub async fn sleep_ms(&self, millis: u64) {
-        self.sleep(Duration::from_millis(millis)).await;
     }
 
     fn wifi_seed() -> u64 {

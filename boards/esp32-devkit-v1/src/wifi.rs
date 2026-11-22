@@ -1,10 +1,17 @@
 use embassy_executor::Spawner;
 use embassy_net::Stack;
+use ull_esp_platform::config::WifiConfig;
+use ull_esp_platform::wifi::{StationNetworkConfig, WifiStackResources};
 
 use super::{Board, BoardError};
 
-static WIFI_STACK_RESOURCES: ull_esp_platform::wifi::WifiStackResources<3> =
-    ull_esp_platform::wifi::WifiStackResources::new();
+/// Sockets reserved by `take_wifi_station`: DHCP plus two TCP connections.
+/// Apps that need more pass their own `WifiStackResources` to
+/// `take_wifi_station_with`.
+pub const DEFAULT_WIFI_SOCKETS: usize = 3;
+
+static DEFAULT_WIFI_STACK_RESOURCES: WifiStackResources<DEFAULT_WIFI_SOCKETS> =
+    WifiStackResources::new();
 
 pub struct WifiStation {
     stack: Stack<'static>,
@@ -14,17 +21,6 @@ pub(super) struct WifiParts {
     pub(super) peripheral: esp_hal::peripherals::WIFI<'static>,
 }
 
-impl WifiParts {
-    fn into_station<const SOCKETS: usize>(
-        self,
-        seed: u64,
-        resources: &'static ull_esp_platform::wifi::WifiStackResources<SOCKETS>,
-        net_config: ull_esp_platform::wifi::StationNetworkConfig,
-    ) -> Result<ull_esp_platform::wifi::WifiStackParts, ull_esp_platform::error::EspError> {
-        ull_esp_platform::wifi::init_station(self.peripheral, seed, resources, net_config)
-    }
-}
-
 impl WifiStation {
     pub fn stack(&self) -> Stack<'static> {
         self.stack
@@ -32,26 +28,40 @@ impl WifiStation {
 }
 
 impl Board {
+    /// Wi-Fi station with DHCP and [`DEFAULT_WIFI_SOCKETS`] sockets.
     pub fn take_wifi_station(
         &mut self,
         spawner: Spawner,
-        config: &ull_esp_platform::config::WifiConfig<'_>,
+        config: &WifiConfig<'_>,
     ) -> Result<WifiStation, BoardError> {
-        self.take_wifi_station_with_network(
+        self.take_wifi_station_with(
             spawner,
             config,
-            ull_esp_platform::wifi::StationNetworkConfig::default(),
+            StationNetworkConfig::default(),
+            &DEFAULT_WIFI_STACK_RESOURCES,
         )
     }
 
-    pub fn take_wifi_station_with_network(
+    /// Wi-Fi station with an explicit network config and socket count:
+    ///
+    /// ```ignore
+    /// static RESOURCES: WifiStackResources<6> = WifiStackResources::new();
+    /// board.take_wifi_station_with(spawner, &config, StationNetworkConfig::dhcpv4(), &RESOURCES)?;
+    /// ```
+    pub fn take_wifi_station_with<const SOCKETS: usize>(
         &mut self,
         spawner: Spawner,
-        config: &ull_esp_platform::config::WifiConfig<'_>,
-        net_config: ull_esp_platform::wifi::StationNetworkConfig,
+        config: &WifiConfig<'_>,
+        net_config: StationNetworkConfig,
+        resources: &'static WifiStackResources<SOCKETS>,
     ) -> Result<WifiStation, BoardError> {
-        let mut wifi =
-            self.take_wifi_stack_parts(Self::wifi_seed(), &WIFI_STACK_RESOURCES, net_config)?;
+        let parts = self.wifi.take().ok_or(BoardError::AlreadyTaken("wifi"))?;
+        let mut wifi = ull_esp_platform::wifi::init_station(
+            parts.peripheral,
+            Self::wifi_seed(),
+            resources,
+            net_config,
+        )?;
         ull_esp_platform::wifi::configure(&mut wifi.controller, config)?;
 
         let connection = ull_esp_platform::wifi::connection_task(wifi.controller)
@@ -63,15 +73,5 @@ impl Board {
         spawner.spawn(runner);
 
         Ok(WifiStation { stack: wifi.stack })
-    }
-
-    fn take_wifi_stack_parts<const SOCKETS: usize>(
-        &mut self,
-        seed: u64,
-        resources: &'static ull_esp_platform::wifi::WifiStackResources<SOCKETS>,
-        net_config: ull_esp_platform::wifi::StationNetworkConfig,
-    ) -> Result<ull_esp_platform::wifi::WifiStackParts, BoardError> {
-        let parts = self.wifi.take().ok_or(BoardError::AlreadyTaken("wifi"))?;
-        Ok(parts.into_station(seed, resources, net_config)?)
     }
 }

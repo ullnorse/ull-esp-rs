@@ -3,12 +3,11 @@ use esp_storage::FlashStorage;
 
 pub type FlashStorageDevice = FlashStorage<'static>;
 
-#[allow(unexpected_cfgs)]
+/// Flash storage that parks the app core during writes and erases.
+///
+/// The ESP32 is dual-core. Without a strategy, esp-storage refuses to write
+/// (`OtherCoreRunning`) while the second core runs, because that core could be
+/// executing from flash. Auto-park stops it for the duration of the operation.
 pub fn init_flash_storage(flash: Flash<'static>) -> FlashStorageDevice {
-    let flash = FlashStorage::new(flash);
-
-    #[cfg(multi_core)]
-    let flash = flash.multicore_auto_park();
-
-    flash
+    FlashStorage::new(flash).multicore_auto_park()
 }
