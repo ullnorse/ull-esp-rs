@@ -55,7 +55,7 @@ After an update the new image boots in `new`; the bootloader moves it to
 `pending_verify`. The fleet agent marks it valid after its first successful
 check-in. Until then any reset sends the device back to the previous image:
 
-- a panic resets the device (`ull_esp_platform::panic_handler!`);
+- a panic resets the device (the panic handler in `ull_esp_platform::restart`);
 - a hang trips the hardware watchdog, a stalled agent the software one
   (`ull_esp_platform::watchdog`);
 - an image that cannot reach the server within 120 s marks itself invalid and

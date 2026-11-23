@@ -2,12 +2,9 @@
 //! one.
 //!
 //! Reset on purpose with [`reboot`] instead of `software_reset`, so the next
-//! boot knows why. Install the panic handler with [`panic_handler!`]: it logs
-//! the panic, keeps its location and message, and resets the device instead
-//! of hanging. The next boot reads the reason with [`last`] and the fleet
-//! agent reports it.
-//!
-//! [`panic_handler!`]: crate::panic_handler
+//! boot knows why. The crate's panic handler logs the panic, keeps its
+//! location and message, and resets the device instead of hanging. The next
+//! boot reads the reason with [`last`] and the fleet agent reports it.
 
 use core::cell::RefCell;
 use core::fmt::Write as _;
@@ -60,10 +57,10 @@ fn note_and_reset(kind: NoteKind, detail: &str) -> ! {
     esp_hal::system::software_reset()
 }
 
-/// The body of the panic handler that [`panic_handler!`] installs.
-///
-/// [`panic_handler!`]: crate::panic_handler
-pub fn on_panic(info: &core::panic::PanicInfo<'_>) -> ! {
+/// The panic handler: log, keep the message for the next boot, reset.
+/// Every firmware that links this crate gets it.
+#[panic_handler]
+fn on_panic(info: &core::panic::PanicInfo<'_>) -> ! {
     log::error!("PANIC: {info}");
     let mut detail = DetailWriter::new();
     if let Some(location) = info.location() {
@@ -78,17 +75,6 @@ pub fn on_panic(info: &core::panic::PanicInfo<'_>) -> ! {
     let start = esp_hal::time::Instant::now();
     while start.elapsed().as_millis() < PANIC_RESET_DELAY_MS {}
     note_and_reset(NoteKind::Panic, detail.as_str())
-}
-
-/// Defines the `#[panic_handler]`: log, keep the message, reset.
-#[macro_export]
-macro_rules! panic_handler {
-    () => {
-        #[panic_handler]
-        fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
-            $crate::restart::on_panic(info)
-        }
-    };
 }
 
 fn read_note() -> [u32; NOTE_WORDS] {

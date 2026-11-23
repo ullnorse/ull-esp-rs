@@ -12,7 +12,6 @@ mod wifi;
 use pins::{BoardPins, I2c0Pins, Spi2Pins, Uart2Pins};
 
 use esp_hal::peripherals as p;
-use esp_hal::rng::Rng;
 
 pub use error::BoardError;
 pub use led::StatusLed;
@@ -98,12 +97,19 @@ pub struct Board {
 }
 
 impl Board {
-    /// Initializes esp-hal at max clock and keeps only the board's peripherals.
+    /// Initializes esp-hal at max clock, sets up a 64 KiB heap and starts
+    /// the async runtime. Keeps only the board's peripherals.
     ///
-    /// The rest are dropped; use [`take_board!`] when the app needs any of them.
+    /// The rest are dropped; use [`take_board!`] and [`Board::from_parts`]
+    /// when the app needs any of them, then start the runtime yourself.
     pub fn init() -> Self {
         let peripherals = esp_hal::init(Self::default_config());
-        take_board!(peripherals)
+        ull_esp_platform::runtime::init_default_heap();
+        let mut board = take_board!(peripherals);
+        if let Some(runtime) = board.runtime.take() {
+            runtime.start();
+        }
+        board
     }
 
     pub fn default_config() -> esp_hal::Config {
@@ -180,10 +186,5 @@ impl Board {
     ) -> Result<ull_esp_platform::flash::FlashStorageDevice, BoardError> {
         let flash = self.flash.take().ok_or(BoardError::AlreadyTaken("flash"))?;
         Ok(ull_esp_platform::flash::init_flash_storage(flash))
-    }
-
-    fn wifi_seed() -> u64 {
-        let rng = Rng::new();
-        ((rng.random() as u64) << 32) | rng.random() as u64
     }
 }

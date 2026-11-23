@@ -10,10 +10,10 @@ and 0x3C.
 
 ## Configuration
 
-Copy `.env.example` to `.env` and set `OTA_PUBLIC_KEY`. `WIFI_SSID`,
-`WIFI_PASSWORD` and `FLEET_BASE_URL` are optional defaults: without them the
-board starts in setup mode, and settings saved from the setup page replace
-them. To set up again, hold BOOT for 3 seconds, then join `ull-setup-xxxx`
+Set `OTA_PUBLIC_KEY` in `~/.config/ull-esp/device.env` (see the main README).
+`WIFI_SSID`, `WIFI_PASSWORD` and `FLEET_BASE_URL` there are optional defaults:
+without them the board starts in setup mode, and settings saved from the setup
+page replace them. To set up again, hold BOOT for 3 seconds, then join `ull-setup-xxxx`
 from a phone.
 
 ## Flash
@@ -36,4 +36,4 @@ METRICS.set("pressure_hpa", 1013.2);
 
 Names are `[a-z0-9_]`, at most 32 characters, with the unit as suffix
 (`_c`, `_pct`, `_hpa`, `_ppm`, `_v`, ...); the server derives labels and units
-from it. Raise the `Metrics<N>` capacity in `app.rs` for more than two.
+from it. `FleetMetrics` holds up to 16 values.

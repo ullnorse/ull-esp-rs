@@ -14,4 +14,6 @@ pub enum BoardError {
     Platform(#[from] ull_esp_platform::error::EspError),
     #[error("failed to spawn {0} task")]
     TaskSpawn(&'static str),
+    #[error("cannot start a task: {0:?}")]
+    Spawn(#[from] embassy_executor::SpawnError),
 }

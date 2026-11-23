@@ -1,5 +1,6 @@
 use core::sync::atomic::{AtomicI32, Ordering};
 
+use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_net::{Config as NetConfig, Stack, StackResources, StaticConfigV4};
 use embassy_time::{Duration, Timer};
@@ -87,6 +88,29 @@ pub fn init_station_dhcp<const SOCKETS: usize>(
     resources: &'static WifiStackResources<SOCKETS>,
 ) -> Result<WifiStackParts, EspError> {
     init_station(wifi, seed, resources, StationNetworkConfig::default())
+}
+
+/// Starts a Wi-Fi station: configures the radio, spawns the connection and
+/// network tasks, and returns the stack. It connects in the background and
+/// reconnects after every drop.
+pub fn start_station<const SOCKETS: usize>(
+    spawner: Spawner,
+    wifi: WIFI<'static>,
+    config: &WifiConfig<'_>,
+    net_config: StationNetworkConfig,
+    resources: &'static WifiStackResources<SOCKETS>,
+) -> Result<Stack<'static>, EspError> {
+    let mut parts = init_station(wifi, random_seed(), resources, net_config)?;
+    configure(&mut parts.controller, config)?;
+    spawner.spawn(connection_task(parts.controller).map_err(|_| EspError::TaskSpawn("wifi"))?);
+    spawner.spawn(runner_task(parts.runner).map_err(|_| EspError::TaskSpawn("net"))?);
+    Ok(parts.stack)
+}
+
+/// A random seed for the network stack, from the hardware RNG.
+pub fn random_seed() -> u64 {
+    let rng = esp_hal::rng::Rng::new();
+    (u64::from(rng.random()) << 32) | u64::from(rng.random())
 }
 
 pub fn configure(

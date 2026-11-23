@@ -16,17 +16,13 @@ bench = false
 [dependencies]
 embassy-embedded-hal.workspace = true
 embassy-executor.workspace = true
-embassy-net.workspace = true
 embassy-sync.workspace = true
 embassy-time.workspace = true
 embedded-graphics.workspace = true
-esp-bootloader-esp-idf.workspace = true
 esp-hal.workspace = true
-esp-radio.workspace = true
 esp-rtos.workspace = true
 heapless.workspace = true
 log.workspace = true
-thiserror.workspace = true
 ull-esp-board-devkit-v1 = { path = "../../boards/esp32-devkit-v1" }
 ull-esp-platform = { path = "../../crates/ull-esp-platform" }
 ull-sht3x = { path = "../../../ull-drivers-rs/drivers/ull-sht3x", features = ["async"] }

@@ -56,22 +56,13 @@ impl Board {
         resources: &'static WifiStackResources<SOCKETS>,
     ) -> Result<WifiStation, BoardError> {
         let parts = self.wifi.take().ok_or(BoardError::AlreadyTaken("wifi"))?;
-        let mut wifi = ull_esp_platform::wifi::init_station(
+        let stack = ull_esp_platform::wifi::start_station(
+            spawner,
             parts.peripheral,
-            Self::wifi_seed(),
-            resources,
+            config,
             net_config,
+            resources,
         )?;
-        ull_esp_platform::wifi::configure(&mut wifi.controller, config)?;
-
-        let connection = ull_esp_platform::wifi::connection_task(wifi.controller)
-            .map_err(|_| BoardError::TaskSpawn("wifi"))?;
-        spawner.spawn(connection);
-
-        let runner = ull_esp_platform::wifi::runner_task(wifi.runner)
-            .map_err(|_| BoardError::TaskSpawn("net"))?;
-        spawner.spawn(runner);
-
-        Ok(WifiStation { stack: wifi.stack })
+        Ok(WifiStation { stack })
     }
 }

@@ -16,7 +16,6 @@ bench = false
 [dependencies]
 embassy-executor.workspace = true
 embassy-time.workspace = true
-esp-bootloader-esp-idf.workspace = true
 esp-hal.workspace = true
 esp-rtos.workspace = true
 log.workspace = true

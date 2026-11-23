@@ -2,17 +2,20 @@
 //! OTA updates on request, and health confirmation of a freshly updated image.
 //!
 //! ```ignore
-//! static METRICS: Metrics<4> = Metrics::new();
-//! let agent = Agent::new(config, Firmware::from_app_desc(&ESP_APP_DESC), OTA_PUBLIC_KEY, flash);
-//! // In a task:
-//! agent.run(stack, &METRICS).await;
+//! static METRICS: FleetMetrics = FleetMetrics::new();
+//! fleet::start(spawner, stack, flash, settings.server_url.as_str(), &ESP_APP_DESC, &METRICS)?;
 //! // Elsewhere:
 //! METRICS.set("temperature_c", 21.5);
 //! ```
+//!
+//! The update key comes from `OTA_PUBLIC_KEY` in `~/.config/ull-esp/device.env`
+//! at build time. For another key or a custom task, build an [`Agent`] and call
+//! [`Agent::run`] yourself.
 
 use core::cell::RefCell;
 use core::fmt::Write as _;
 
+use embassy_executor::Spawner;
 use embassy_net::tcp::TcpSocket;
 use embassy_net::{Ipv4Address, Stack};
 use embassy_sync::blocking_mutex::Mutex as BlockingMutex;
@@ -27,6 +30,7 @@ use ull_esp_core::fleet::{Checkin, CheckinReply, parse_reply};
 
 pub use ull_esp_core::fleet::{DeviceId, MAX_METRICS};
 
+use crate::error::EspError;
 use crate::flash::FlashStorageDevice;
 use crate::hex;
 use crate::http::{self, BaseUrl, HttpClientError, ResponseHead};
@@ -55,6 +59,46 @@ const REBOOT_DELAY: Duration = Duration::from_secs(1);
 const CHECKIN_BUDGET: Duration = Duration::from_secs(120);
 /// How often the agent beats while it waits for the network.
 const NETWORK_WAIT_STEP: Duration = Duration::from_secs(30);
+
+/// The update key built in from `OTA_PUBLIC_KEY` (see `build.rs`). A
+/// malformed key fails the build.
+pub const BUILT_IN_UPDATE_KEY: Option<[u8; PUBLIC_KEY_LEN]> = match option_env!("OTA_PUBLIC_KEY") {
+    Some(key) => Some(hex::decode_const(key)),
+    None => None,
+};
+
+/// Metrics sized for one check-in.
+pub type FleetMetrics = Metrics<MAX_METRICS>;
+
+/// Starts the fleet agent in its own task: check-ins with `metrics`, signed
+/// updates, and health confirmation. Without a server URL or a built-in
+/// update key it logs a warning and starts nothing. Watch [`PULSE`] with the
+/// watchdog.
+pub fn start(
+    spawner: Spawner,
+    stack: Stack<'static>,
+    flash: FlashStorageDevice,
+    server_url: &'static str,
+    firmware: &'static EspAppDesc,
+    metrics: &'static FleetMetrics,
+) -> Result<(), EspError> {
+    let Some(config) = FleetConfig::parse(server_url) else {
+        log::warn!("no fleet server set; running without updates");
+        return Ok(());
+    };
+    let Some(key) = BUILT_IN_UPDATE_KEY else {
+        log::warn!("no update key built in (OTA_PUBLIC_KEY); running without updates");
+        return Ok(());
+    };
+    let agent = Agent::new(config, Firmware::from_app_desc(firmware), key, flash);
+    spawner.spawn(agent_task(agent, stack, metrics).map_err(|_| EspError::TaskSpawn("fleet"))?);
+    Ok(())
+}
+
+#[embassy_executor::task]
+async fn agent_task(agent: Agent, stack: Stack<'static>, metrics: &'static FleetMetrics) {
+    agent.run(stack, metrics).await
+}
 
 /// Where the fleet server is.
 #[derive(Copy, Clone, Debug)]

@@ -15,8 +15,10 @@ test = false
 doctest = false
 bench = false
 
-[lints]
-workspace = true
+# The workspace forbids unsafe code; this crate only denies it, for the one
+# exported log timestamp symbol in `runtime`.
+[lints.rust]
+unsafe_code = "deny"
 
 [dependencies]
 embassy-executor.workspace = true

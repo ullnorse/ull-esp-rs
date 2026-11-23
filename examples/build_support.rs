@@ -66,7 +66,7 @@ fn linker_be_nice() {
 /// version below is fresh for every build with different sources.
 #[allow(dead_code)]
 fn rerun_if_changed(paths: &[&str]) {
-    for path in [".env", "build.rs", "Cargo.toml", "src", "../build_support.rs"]
+    for path in ["build.rs", "Cargo.toml", "src", "../build_support.rs"]
         .iter()
         .chain(paths)
     {
@@ -142,39 +142,4 @@ fn utc_date_time(epoch: u64) -> (String, String) {
             seconds % 60
         ),
     )
-}
-
-/// Exports every `KEY=value` line of `.env` as a compile-time variable,
-/// unless the variable is already set in the environment.
-#[allow(dead_code)]
-fn load_dotenv() {
-    let manifest_dir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let Ok(contents) = std::fs::read_to_string(manifest_dir.join(".env")) else {
-        println!("cargo:warning=.env not found; configuration must come from the environment");
-        return;
-    };
-
-    for line in contents.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        let Some((key, value)) = line.split_once('=') else {
-            continue;
-        };
-        let key = key.trim();
-        println!("cargo:rerun-if-env-changed={key}");
-        if std::env::var_os(key).is_some() {
-            // The environment wins, so one build can override `.env`.
-            continue;
-        }
-        let mut value = value.trim();
-        if value.len() >= 2
-            && ((value.starts_with('"') && value.ends_with('"'))
-                || (value.starts_with('\'') && value.ends_with('\'')))
-        {
-            value = &value[1..value.len() - 1];
-        }
-        println!("cargo:rustc-env={key}={value}");
-    }
 }

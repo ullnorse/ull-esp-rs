@@ -56,7 +56,8 @@ only the peripherals the board maps; use `take_board!` when the app needs others
 let peripherals = esp_hal::init(Board::default_config());
 let mut board = ull_esp_board_devkit_v1::take_board!(peripherals);
 let adc = peripherals.ADC1; // not mapped by the board, still usable
-board.start_runtime()?;
+ull_esp_platform::runtime::init_default_heap();
+board.start_runtime()?; // `Board::init()` does both itself
 
 let i2c_bus = board.take_i2c0_shared()?;
 let spi = board.take_spi2()?;
@@ -71,8 +72,8 @@ Board defaults: I2C0 runs at 400 kHz (`take_i2c0_with_config` for 100 kHz parts)
 and `take_wifi_station` reserves 3 sockets (`take_wifi_station_with` takes your
 own `WifiStackResources<N>`).
 
-Crash recovery: `ull_esp_platform::panic_handler!()` defines a panic handler
-that logs, keeps the panic message in RTC memory and resets the device.
+Crash recovery: linking `ull-esp-platform` installs a panic handler that logs,
+keeps the panic message in RTC memory and resets the device.
 `board.start_watchdog(spawner, &PULSES)` reboots when a watched task stops
 reporting progress, and the hardware watchdog resets the chip when no task runs.
 `ull_esp_platform::restart::last()` tells the next boot why it happened; the
@@ -107,19 +108,50 @@ update when the server offers one, and confirms or rolls back the new image.
 ```rust
 ull_esp_platform::firmware_app_desc!(); // version and secure_version per build
 
-static METRICS: Metrics<2> = Metrics::new();
+static METRICS: FleetMetrics = FleetMetrics::new();
 
-let agent = Agent::new(fleet_config, Firmware::from_app_desc(&ESP_APP_DESC), OTA_PUBLIC_KEY, flash);
-// in a task: agent.run(stack, &METRICS).await
+fleet::start(spawner, stack, flash, settings.server_url.as_str(), &ESP_APP_DESC, &METRICS)?;
 METRICS.set("temperature_c", 21.5);
 ```
+
+The update key is `OTA_PUBLIC_KEY` from the shared configuration below. For
+another key or your own task, build a `fleet::Agent` and call `run` on it.
 
 `firmware_app_desc!` needs `export_firmware_identity()` from
 `examples/build_support.rs` in the crate's `build.rs`.
 
-Examples that need compile-time configuration keep their own `.env.example`
-and local `.env`, loaded by that example's `build.rs`. Those values are baked
-into the firmware at build time, so changing them requires a rebuild.
+## Shared configuration
+
+The Wi-Fi network, fleet server and update key live in one file for every
+project: `~/.config/ull-esp/device.env` (template: `device.env.example`; another
+path with `ULL_ESP_CONFIG`). `ull-esp-platform`'s `build.rs` bakes them in, so a
+change needs a rebuild; a variable set in the environment wins for one build.
+`settings::built_in()` returns the Wi-Fi and server values, and settings saved
+on a board win over them.
+
+## A new app
+
+`main.rs` is the same in every app; the app's own code goes in `app::run`:
+
+```rust
+#![no_std]
+#![no_main]
+
+use embassy_executor::Spawner;
+
+mod app;
+
+ull_esp_platform::firmware_app_desc!();
+
+#[esp_rtos::main]
+async fn main(spawner: Spawner) {
+    ull_esp_platform::runtime::run_app(spawner, app::run).await
+}
+```
+
+`run_app` starts logging and, when `app::run` returns an error, logs it and
+resets the device. See `examples/sht3x-ssd1306/src/app.rs` for an app with
+settings, setup mode, Wi-Fi, updates and sensors.
 
 `examples/sht3x-ssd1306` also depends on a sibling `../ull-drivers-rs` checkout
 for `ull-sht3x` and `ull-ssd1306`.
@@ -129,7 +161,7 @@ for `ull-sht3x` and `ull-ssd1306`.
 - the checked-in Rust toolchain channel is `esp`
 - the checked-in Cargo config builds for `xtensa-esp32-none-elf` by default and enables `build-std = ["alloc", "core"]`
 - `examples/sht3x-ssd1306` needs the sibling `ull-drivers-rs` repository
-- `examples/http-ota` and `examples/sht3x-ssd1306` expect build-time environment variables from `.env` or the shell
+- `examples/http-ota` and `examples/sht3x-ssd1306` read `~/.config/ull-esp/device.env` (see Shared configuration)
 
 ## Commands
 

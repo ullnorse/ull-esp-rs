@@ -7,14 +7,9 @@ with readings.
 
 ## Configuration
 
-Copy `.env.example` to `.env`:
-
-- `WIFI_SSID`, `WIFI_PASSWORD`
-- `FLEET_BASE_URL`: `http://<ipv4>:<port>` of the ull-fleet server (no DNS, no HTTPS)
-- `OTA_PUBLIC_KEY`: 64 hex digits from `ull-fleet-sign keygen`; the build fails without it
-
-Values are compiled in. A variable set in the environment overrides `.env` for
-one build.
+Wi-Fi, the fleet server and the update key come from
+`~/.config/ull-esp/device.env` (see the main README), unless the board already
+has settings saved from the setup page of another example.
 
 ## Flash and update
 

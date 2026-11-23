@@ -24,7 +24,7 @@ impl Board {
             flash,
             current,
             firmware,
-            Self::wifi_seed(),
+            ull_esp_platform::wifi::random_seed(),
         )
         .await
     }

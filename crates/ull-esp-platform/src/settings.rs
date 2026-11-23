@@ -2,7 +2,7 @@
 //! in `ull_esp_core::settings`; this module only reads and writes flash.
 //!
 //! Settings saved on the board win over the ones built into the firmware
-//! (from the example's `.env`), so a board set up from the phone keeps its
+//! (from `~/.config/ull-esp/device.env`, see [`built_in`]), so a board set up from the phone keeps its
 //! network across updates.
 
 use esp_bootloader_esp_idf::partitions::{
@@ -37,6 +37,21 @@ pub enum Source {
 }
 
 static LOADED: StaticCell<Settings> = StaticCell::new();
+
+/// Settings built into the firmware from `~/.config/ull-esp/device.env`
+/// (`WIFI_SSID`, `WIFI_PASSWORD`, `FLEET_BASE_URL`; see `build.rs`). Empty
+/// when unset or invalid.
+pub fn built_in() -> Settings {
+    let ssid = option_env!("WIFI_SSID").unwrap_or("");
+    let password = option_env!("WIFI_PASSWORD").unwrap_or("");
+    let server = option_env!("FLEET_BASE_URL").unwrap_or("");
+    Settings::new(ssid, password, server).unwrap_or_else(|invalid| {
+        if !ssid.is_empty() {
+            log::warn!("ignoring the built-in settings: {}", invalid.message());
+        }
+        Settings::default()
+    })
+}
 
 /// Reads the saved settings, or falls back to `built_in`. Call once; the
 /// result lives for the rest of the program so the fleet agent can borrow
