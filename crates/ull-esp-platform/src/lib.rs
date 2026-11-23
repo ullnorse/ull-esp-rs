@@ -9,6 +9,8 @@ pub mod i2c;
 pub mod ota;
 pub mod restart;
 pub mod runtime;
+pub mod settings;
+pub mod setup;
 pub mod spi;
 pub mod uart;
 pub mod watchdog;

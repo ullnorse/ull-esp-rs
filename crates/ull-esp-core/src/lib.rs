@@ -15,4 +15,6 @@ pub mod http;
 pub mod image;
 pub mod otadata;
 pub mod restart;
+pub mod settings;
+pub mod setup;
 pub mod signature;

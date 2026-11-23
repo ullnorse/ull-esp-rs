@@ -78,6 +78,16 @@ reporting progress, and the hardware watchdog resets the chip when no task runs.
 `ull_esp_platform::restart::last()` tells the next boot why it happened; the
 fleet agent reports it.
 
+Settings: `ull_esp_platform::settings::load` reads the Wi-Fi name, password and
+fleet server URL saved in the `nvs` partition, falling back to the ones built
+into the firmware. With none, or after the BOOT button is held for 3 seconds
+(`board.watch_setup_button`), or after 5 minutes without Wi-Fi
+(`board.watch_wifi_for_setup`), the board restarts into setup mode
+(`board.run_setup`): it opens the open network `ull-setup-xxxx` (the last four
+hex digits of its MAC), and a phone that joins it is shown a page to enter the
+settings. Saving restarts the board with them; setup mode also restarts after
+10 minutes without a request.
+
 Lower-level platform helpers remain available under module-qualified paths such as `ull_esp_platform::i2c::init_i2c`, `ull_esp_platform::spi::init_spi`, and `ull_esp_platform::uart::init_uart`.
 
 ## Examples

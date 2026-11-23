@@ -1,3 +1,6 @@
+/// BOOT button: low while pressed. Holding it during reset enters the ROM
+/// download mode, so the firmware only reads it after boot.
+pub(crate) type BootButtonPin = esp_hal::peripherals::GPIO0<'static>;
 pub(crate) type StatusLedPin = esp_hal::peripherals::GPIO2<'static>;
 pub(crate) type I2c0SclPin = esp_hal::peripherals::GPIO22<'static>;
 pub(crate) type I2c0SdaPin = esp_hal::peripherals::GPIO21<'static>;
@@ -25,6 +28,7 @@ pub(crate) struct Uart2Pins {
 }
 
 pub(crate) struct BoardPins {
+    pub(crate) boot_button: Option<BootButtonPin>,
     pub(crate) status_led: Option<StatusLedPin>,
     pub(crate) spi2_cs: Option<Spi2CsPin>,
 }

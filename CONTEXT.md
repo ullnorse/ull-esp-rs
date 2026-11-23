@@ -36,6 +36,12 @@ Why the device last booted: the chip's reset reason (power-on, brownout, hardwar
 ### Watchdog
 Two layers that turn a stuck device into a restart. A software watchdog reboots when a task stops reporting progress within the time it promised; the TIMG1 hardware watchdog resets the chip when no task runs at all.
 
+### Device Settings
+The Wi-Fi name, password and fleet server URL a device runs with. Settings saved on the device (two alternating flash sectors in the `nvs` partition, so a power loss keeps the previous copy) win over the ones built into the firmware.
+
+### Setup Mode
+A boot in which the device opens its own Wi-Fi network (`ull-setup-xxxx`, address 192.168.4.1) with an address server, a name server that answers every name with the device's address, and a settings page, so a phone that joins is shown the page by itself. Entered when the device has no settings, when the BOOT button is held for 3 seconds, or after 5 minutes without Wi-Fi. Left by restarting, after a save or 10 idle minutes.
+
 ### Update Authorization
 A policy rule that an OTA request or OTA decision must prove it is allowed to install firmware before the device accepts the application image. The current `http-ota` example does not implement update authorization.
 

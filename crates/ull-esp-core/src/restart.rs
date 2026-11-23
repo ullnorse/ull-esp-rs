@@ -45,6 +45,11 @@ pub enum NoteKind {
     Rollback = 4,
     /// A reboot someone asked for.
     Requested = 5,
+    /// Reboot into setup mode: no Wi-Fi settings, the Wi-Fi failed for a
+    /// while, or the button was held.
+    Setup = 6,
+    /// Leaving setup mode: new settings were saved, or it timed out.
+    Settings = 7,
 }
 
 impl NoteKind {
@@ -55,6 +60,8 @@ impl NoteKind {
             3 => Self::Update,
             4 => Self::Rollback,
             5 => Self::Requested,
+            6 => Self::Setup,
+            7 => Self::Settings,
             _ => return None,
         })
     }
@@ -151,6 +158,8 @@ pub enum Cause {
     Update,
     Rollback,
     Requested,
+    Setup,
+    Settings,
 }
 
 impl Cause {
@@ -168,6 +177,8 @@ impl Cause {
             Self::Update => "update",
             Self::Rollback => "rollback",
             Self::Requested => "requested",
+            Self::Setup => "setup",
+            Self::Settings => "settings",
         }
     }
 
@@ -209,6 +220,8 @@ impl Restart {
                 NoteKind::Update => Cause::Update,
                 NoteKind::Rollback => Cause::Rollback,
                 NoteKind::Requested => Cause::Requested,
+                NoteKind::Setup => Cause::Setup,
+                NoteKind::Settings => Cause::Settings,
             },
             (None, ChipReset::PowerOn) => Cause::PowerOn,
             (None, ChipReset::Software) => Cause::Software,

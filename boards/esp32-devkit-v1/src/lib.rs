@@ -4,6 +4,7 @@ mod error;
 mod i2c;
 mod led;
 mod pins;
+mod setup;
 mod spi;
 mod uart;
 mod wifi;
@@ -39,6 +40,7 @@ pub struct BoardParts {
     pub i2c0: p::I2C0<'static>,
     pub spi2: p::SPI2<'static>,
     pub uart2: p::UART2<'static>,
+    pub gpio0: p::GPIO0<'static>,
     pub gpio2: p::GPIO2<'static>,
     pub gpio5: p::GPIO5<'static>,
     pub gpio16: p::GPIO16<'static>,
@@ -70,6 +72,7 @@ macro_rules! take_board {
             i2c0: $peripherals.I2C0,
             spi2: $peripherals.SPI2,
             uart2: $peripherals.UART2,
+            gpio0: $peripherals.GPIO0,
             gpio2: $peripherals.GPIO2,
             gpio5: $peripherals.GPIO5,
             gpio16: $peripherals.GPIO16,
@@ -141,6 +144,7 @@ impl Board {
                 },
             }),
             pins: BoardPins {
+                boot_button: Some(parts.gpio0),
                 status_led: Some(parts.gpio2),
                 spi2_cs: Some(parts.gpio5),
             },

@@ -10,8 +10,11 @@ and 0x3C.
 
 ## Configuration
 
-Copy `.env.example` to `.env` and set `WIFI_SSID`, `WIFI_PASSWORD`,
-`FLEET_BASE_URL` and `OTA_PUBLIC_KEY`.
+Copy `.env.example` to `.env` and set `OTA_PUBLIC_KEY`. `WIFI_SSID`,
+`WIFI_PASSWORD` and `FLEET_BASE_URL` are optional defaults: without them the
+board starts in setup mode, and settings saved from the setup page replace
+them. To set up again, hold BOOT for 3 seconds, then join `ull-setup-xxxx`
+from a phone.
 
 ## Flash
 
