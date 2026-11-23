@@ -51,20 +51,32 @@ the partial image cannot pass the bootloader's header check.
 
 ## Health confirmation
 
-After an update the new image boots in `pending_verify`. The fleet agent marks
-it valid after its first successful check-in. If it cannot reach the server
-within 120 s, it marks itself invalid and reboots; the bootloader returns to the
-previous slot.
+After an update the new image boots in `new`; the bootloader moves it to
+`pending_verify`. The fleet agent marks it valid after its first successful
+check-in. Until then any reset sends the device back to the previous image:
+
+- a panic resets the device (`ull_esp_platform::panic_handler!`);
+- a hang trips the hardware watchdog, a stalled agent the software one
+  (`ull_esp_platform::watchdog`);
+- an image that cannot reach the server within 120 s marks itself invalid and
+  reboots.
+
+On the next boot, the bootloader finds the image still `pending_verify`, marks
+it aborted, and starts the previous slot. That image reports why: the panic
+message or stalled task that the failed image left in RTC memory.
+
+Checked on hardware with an image that panics at boot: three install attempts,
+each rolled back to the previous slot and reported as a crash; then a good
+image installed, confirmed, and stayed selected across a power reset.
 
 ## Bootloader
 
-`bootloader.bin` is an ESP-IDF v5.5 second-stage bootloader, pinned so flashing
-is reproducible. It skips a slot whose `otadata` state is invalid (checked on
-hardware: an update that could not reach the server rolled back to the previous
-slot). eFuse anti-rollback is not used; the `secure_version` check above is
-done by the running firmware.
+`bootloader.bin` is an ESP-IDF v5.5.1 second-stage bootloader built from
+`bootloader/` with `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`. Rebuild it with
+`bootloader/build.sh` after exporting ESP-IDF.
 
-Limit: this bootloader leaves a new image in state `new` instead of moving it to
-`pending_verify`, so it does not roll back by itself. An image that hangs or
-crashes before its agent runs stays selected and needs a USB reflash. Closing
-this needs a bootloader built with `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`.
+eFuse anti-rollback is off: it burns eFuses, which cannot be undone. The
+`secure_version` check above is done by the running firmware instead.
+
+Boards flashed with the earlier bootloader (ESP-IDF v5.5.1-838, no rollback)
+need one USB flash to get this one; updates do not replace the bootloader.
