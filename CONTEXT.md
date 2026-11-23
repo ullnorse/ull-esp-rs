@@ -28,7 +28,13 @@ A remote service that stores firmware artifacts, tracks device status, decides w
 Verification that the received bytes match the intended application image before the device activates the target OTA application slot.
 
 ### Health Confirmation
-The act of a newly booted application image marking itself as healthy after restoring enough of the device's update path for the product's policy, so the bootloader keeps using that image. In the current `http-ota` example this means restoring network configuration, not proving Fleet Management Service reachability.
+The act of a newly booted application image marking itself as healthy after restoring enough of the device's update path for the product's policy, so the bootloader keeps using that image. The fleet agent confirms after its first successful check-in with the Fleet Management Service.
+
+### Restart Reason
+Why the device last booted: the chip's reset reason (power-on, brownout, hardware watchdog, software reset) refined by a note the firmware leaves in RTC memory before resetting on purpose (panic, stalled task, update installed, rollback). The fleet agent reports it on every check-in.
+
+### Watchdog
+Two layers that turn a stuck device into a restart. A software watchdog reboots when a task stops reporting progress within the time it promised; the TIMG1 hardware watchdog resets the chip when no task runs at all.
 
 ### Update Authorization
 A policy rule that an OTA request or OTA decision must prove it is allowed to install firmware before the device accepts the application image. The current `http-ota` example does not implement update authorization.

@@ -4,4 +4,6 @@ use thiserror::Error;
 pub enum EspError {
     #[error("wifi error: {0:?}")]
     Wifi(#[from] esp_radio::wifi::WifiError),
+    #[error("cannot spawn the {0} task")]
+    TaskSpawn(&'static str),
 }

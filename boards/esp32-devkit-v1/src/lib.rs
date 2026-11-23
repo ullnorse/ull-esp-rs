@@ -33,6 +33,7 @@ impl RuntimeParts {
 pub struct BoardParts {
     pub timg0: p::TIMG0<'static>,
     pub cpu_int0: p::FROM_CPU_INTR0<'static>,
+    pub timg1: p::TIMG1<'static>,
     pub flash: p::FLASH<'static>,
     pub wifi: p::WIFI<'static>,
     pub i2c0: p::I2C0<'static>,
@@ -63,6 +64,7 @@ macro_rules! take_board {
         $crate::Board::from_parts($crate::BoardParts {
             timg0: $peripherals.TIMG0,
             cpu_int0: $peripherals.FROM_CPU_INTR0,
+            timg1: $peripherals.TIMG1,
             flash: $peripherals.FLASH,
             wifi: $peripherals.WIFI,
             i2c0: $peripherals.I2C0,
@@ -83,6 +85,7 @@ macro_rules! take_board {
 
 pub struct Board {
     runtime: Option<RuntimeParts>,
+    timg1: Option<p::TIMG1<'static>>,
     flash: Option<p::FLASH<'static>>,
     wifi: Option<wifi::WifiParts>,
     i2c0: Option<i2c::I2c0Parts>,
@@ -110,6 +113,7 @@ impl Board {
                 timg0: parts.timg0,
                 cpu_int0: parts.cpu_int0,
             }),
+            timg1: Some(parts.timg1),
             flash: Some(parts.flash),
             wifi: Some(wifi::WifiParts {
                 peripheral: parts.wifi,
@@ -151,6 +155,19 @@ impl Board {
 
     pub fn start_runtime(&mut self) -> Result<(), BoardError> {
         self.take_runtime()?.start();
+        Ok(())
+    }
+
+    /// Starts the watchdog on TIMG1: reboots when one of `pulses` is late,
+    /// and the hardware watchdog resets the chip when tasks stop running.
+    /// See `ull_esp_platform::watchdog`.
+    pub fn start_watchdog(
+        &mut self,
+        spawner: embassy_executor::Spawner,
+        pulses: &'static [&'static ull_esp_platform::watchdog::Pulse],
+    ) -> Result<(), BoardError> {
+        let timg1 = self.timg1.take().ok_or(BoardError::AlreadyTaken("timg1"))?;
+        ull_esp_platform::watchdog::start(spawner, timg1, pulses)?;
         Ok(())
     }
 

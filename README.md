@@ -38,8 +38,8 @@ ull-esp-rs/
 
 ## Workspace Packages
 
-- `ull-esp-core`: hardware-free logic (otadata rules, image header and app descriptor checks, OTA signature verification, HTTP response parsing, the fleet check-in protocol). Builds and tests on the host.
-- `ull-esp-platform`: reusable runtime, Wi-Fi, flash, OTA, fleet agent, and peripheral helpers for ESP32 projects using Embassy.
+- `ull-esp-core`: hardware-free logic (otadata rules, image header and app descriptor checks, OTA signature verification, HTTP response parsing, the fleet check-in protocol, restart notes). Builds and tests on the host.
+- `ull-esp-platform`: reusable runtime, Wi-Fi, flash, OTA, fleet agent, restart reasons, watchdog, and peripheral helpers for ESP32 projects using Embassy.
 - `ull-esp-board-devkit-v1`: ESP32 DevKit V1 board mapping and convenience helpers built on `ull-esp-platform`.
 
 ## API Direction
@@ -70,6 +70,13 @@ let wifi = board.take_wifi_station(spawner, &wifi_config)?;
 Board defaults: I2C0 runs at 400 kHz (`take_i2c0_with_config` for 100 kHz parts),
 and `take_wifi_station` reserves 3 sockets (`take_wifi_station_with` takes your
 own `WifiStackResources<N>`).
+
+Crash recovery: `ull_esp_platform::panic_handler!()` defines a panic handler
+that logs, keeps the panic message in RTC memory and resets the device.
+`board.start_watchdog(spawner, &PULSES)` reboots when a watched task stops
+reporting progress, and the hardware watchdog resets the chip when no task runs.
+`ull_esp_platform::restart::last()` tells the next boot why it happened; the
+fleet agent reports it.
 
 Lower-level platform helpers remain available under module-qualified paths such as `ull_esp_platform::i2c::init_i2c`, `ull_esp_platform::spi::init_spi`, and `ull_esp_platform::uart::init_uart`.
 

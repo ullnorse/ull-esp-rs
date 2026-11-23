@@ -46,6 +46,11 @@ pub struct Checkin<'a> {
     pub rssi_dbm: Option<i32>,
     pub ip: Option<[u8; 4]>,
     pub last_ota_error: Option<&'a str>,
+    /// Why this boot happened (`restart::Cause::as_str`), sent on every
+    /// check-in of the boot.
+    pub reset_reason: &'a str,
+    /// The panic message, stalled task or rollback reason, when there is one.
+    pub reset_detail: Option<&'a str>,
     /// `(name, value)`; names carry their unit, e.g. `temperature_c`.
     pub metrics: &'a [(&'a str, f32)],
 }
@@ -71,6 +76,14 @@ impl Checkin<'_> {
         if let Some(error) = self.last_ota_error {
             out.write_str(",\"last_ota_error\":")?;
             write_string(out, error)?;
+        }
+        if !self.reset_reason.is_empty() {
+            out.write_str(",\"reset_reason\":")?;
+            write_string(out, self.reset_reason)?;
+        }
+        if let Some(detail) = self.reset_detail {
+            out.write_str(",\"reset_detail\":")?;
+            write_string(out, detail)?;
         }
         out.write_str(",\"metrics\":{")?;
         let mut first = true;
@@ -182,6 +195,8 @@ mod tests {
             rssi_dbm: Some(-61),
             ip: Some([192, 168, 1, 20]),
             last_ota_error: Some("bad \"sig\"\n"),
+            reset_reason: "panic",
+            reset_detail: Some("src/app.rs:9: boom"),
             metrics: &[
                 ("temperature_c", 26.25),
                 ("broken", f32::NAN),
@@ -192,7 +207,7 @@ mod tests {
         checkin.write_json(&mut out).unwrap();
         assert_eq!(
             out,
-            r#"{"project":"sht3x-ssd1306","version":"0.1.0+abc-1","secure_version":1,"partition":"ota_0","ota_state":"valid","uptime_s":42,"rssi_dbm":-61,"ip":"192.168.1.20","last_ota_error":"bad \"sig\"\u000a","metrics":{"temperature_c":26.25,"humidity_pct":52.5}}"#
+            r#"{"project":"sht3x-ssd1306","version":"0.1.0+abc-1","secure_version":1,"partition":"ota_0","ota_state":"valid","uptime_s":42,"rssi_dbm":-61,"ip":"192.168.1.20","last_ota_error":"bad \"sig\"\u000a","reset_reason":"panic","reset_detail":"src/app.rs:9: boom","metrics":{"temperature_c":26.25,"humidity_pct":52.5}}"#
         );
     }
 
@@ -208,6 +223,8 @@ mod tests {
             rssi_dbm: None,
             ip: None,
             last_ota_error: None,
+            reset_reason: "",
+            reset_detail: None,
             metrics: &[],
         };
         let mut out = String::new();

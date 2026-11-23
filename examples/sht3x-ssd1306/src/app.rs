@@ -5,6 +5,7 @@ use embassy_sync::signal::Signal;
 use ull_esp_board_devkit_v1::Board;
 use ull_esp_platform::fleet::{Agent, Firmware, FleetConfig, Metrics};
 use ull_esp_platform::ota::PUBLIC_KEY_LEN;
+use ull_esp_platform::watchdog::Pulse;
 use ull_esp_platform::{config::WifiConfig, hex, runtime};
 
 use crate::error::AppError;
@@ -26,6 +27,8 @@ pub(crate) struct Reading {
 pub(crate) static DISPLAY_READING: Signal<CriticalSectionRawMutex, Reading> = Signal::new();
 /// Latest readings for the fleet server: `temperature_c`, `humidity_pct`.
 pub(crate) static METRICS: Metrics<2> = Metrics::new();
+/// Tasks the watchdog checks; it reboots the device when one stops reporting.
+static WATCHED: [&Pulse; 1] = [&ull_esp_platform::fleet::PULSE];
 
 pub async fn run(spawner: Spawner) -> Result<(), AppError> {
     runtime::init_default_heap();
@@ -38,6 +41,7 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
 
     let mut board = Board::init();
     board.start_runtime()?;
+    board.start_watchdog(spawner, &WATCHED)?;
 
     let i2c_bus = board.take_i2c0_shared()?;
     let flash = board.take_flash_storage()?;

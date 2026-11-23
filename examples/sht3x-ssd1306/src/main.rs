@@ -9,11 +9,7 @@ mod tasks;
 
 ull_esp_platform::firmware_app_desc!();
 
-#[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
-    log::error!("PANIC: {:?}", info);
-    loop {}
-}
+ull_esp_platform::panic_handler!();
 
 #[unsafe(no_mangle)]
 pub extern "Rust" fn _esp_println_timestamp() -> u64 {

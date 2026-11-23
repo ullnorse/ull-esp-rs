@@ -10,8 +10,8 @@ pub enum BoardError {
     Spi(#[from] esp_hal::spi::master::ConfigError),
     #[error("uart init failed: {0}")]
     Uart(#[from] esp_hal::uart::ConfigError),
-    #[error("wifi error: {0}")]
-    Wifi(#[from] ull_esp_platform::error::EspError),
+    #[error(transparent)]
+    Platform(#[from] ull_esp_platform::error::EspError),
     #[error("failed to spawn {0} task")]
     TaskSpawn(&'static str),
 }

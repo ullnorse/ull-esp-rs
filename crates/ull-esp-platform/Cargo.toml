@@ -33,6 +33,7 @@ esp-radio.workspace = true
 esp-rtos.workspace = true
 esp-storage.workspace = true
 heapless.workspace = true
+portable-atomic.workspace = true
 log.workspace = true
 sha2.workspace = true
 static_cell.workspace = true

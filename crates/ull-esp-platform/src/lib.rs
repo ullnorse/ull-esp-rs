@@ -7,9 +7,11 @@ pub mod fleet;
 pub mod http;
 pub mod i2c;
 pub mod ota;
+pub mod restart;
 pub mod runtime;
 pub mod spi;
 pub mod uart;
+pub mod watchdog;
 pub mod wifi;
 
 pub use ull_esp_core::hex;

@@ -14,4 +14,5 @@ pub mod hex;
 pub mod http;
 pub mod image;
 pub mod otadata;
+pub mod restart;
 pub mod signature;

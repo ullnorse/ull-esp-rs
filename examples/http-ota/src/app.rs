@@ -7,6 +7,7 @@ use embassy_time::{Duration, Timer};
 use ull_esp_board_devkit_v1::{Board, StatusLed};
 use ull_esp_platform::fleet::{Agent, Firmware, Metrics};
 use ull_esp_platform::runtime;
+use ull_esp_platform::watchdog::Pulse;
 
 use crate::config::{AppConfig, OTA_PUBLIC_KEY};
 use crate::error::AppError;
@@ -15,6 +16,8 @@ const STATUS_LED_BLINK_PERIOD: Duration = Duration::from_millis(5000);
 
 /// This device reports no metrics; the agent still sends heartbeats.
 static METRICS: Metrics<1> = Metrics::new();
+/// Tasks the watchdog checks; it reboots the device when one stops reporting.
+static WATCHED: [&Pulse; 1] = [&ull_esp_platform::fleet::PULSE];
 
 pub async fn run(spawner: Spawner) -> Result<(), AppError> {
     runtime::init_default_heap();
@@ -22,6 +25,7 @@ pub async fn run(spawner: Spawner) -> Result<(), AppError> {
 
     let mut board = Board::init();
     board.start_runtime()?;
+    board.start_watchdog(spawner, &WATCHED)?;
 
     let status_led = board.take_status_led()?;
     let flash = board.take_flash_storage()?;

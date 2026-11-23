@@ -33,6 +33,12 @@ use crate::http::{self, BaseUrl, HttpClientError, ResponseHead};
 use crate::ota::{
     self, ExpectedImage, InstalledImage, OtaError, PUBLIC_KEY_LEN, SIGNATURE_LEN, UpdateInstaller,
 };
+use crate::restart::{self, NoteKind, Restart};
+use crate::watchdog::Pulse;
+
+/// The agent's progress, for [`crate::watchdog::start`]: it beats before every
+/// check-in, while it waits for the network, and per downloaded chunk.
+pub static PULSE: Pulse = Pulse::new("fleet agent");
 
 const SHA256_HEADER: &str = "x-application-image-sha256";
 const SIGNATURE_HEADER: &str = "x-application-image-ed25519";
@@ -44,6 +50,11 @@ const MAX_POLL_INTERVAL_S: u32 = 3600;
 const HEALTH_CONFIRM_TIMEOUT: Duration = Duration::from_secs(120);
 const SOCKET_TIMEOUT: Duration = Duration::from_secs(20);
 const REBOOT_DELAY: Duration = Duration::from_secs(1);
+/// Longest a check-in may take: connect, send, and read, each bounded by
+/// [`SOCKET_TIMEOUT`], with room to spare.
+const CHECKIN_BUDGET: Duration = Duration::from_secs(120);
+/// How often the agent beats while it waits for the network.
+const NETWORK_WAIT_STEP: Duration = Duration::from_secs(30);
 
 /// Where the fleet server is.
 #[derive(Copy, Clone, Debug)]
@@ -159,6 +170,8 @@ pub struct Agent {
     flash: FlashStorageDevice,
     /// Reported once on the next check-in after a failed update.
     last_error: String<96>,
+    /// Why this boot happened, reported on every check-in.
+    restart: Restart,
 }
 
 impl Agent {
@@ -178,6 +191,7 @@ impl Agent {
             device_id: DeviceId::from_mac(bytes),
             flash,
             last_error: String::new(),
+            restart: restart::last(),
         }
     }
 
@@ -216,24 +230,21 @@ impl Agent {
             self.firmware.version,
             self.config.authority,
         );
+        match self.restart.detail() {
+            Some(detail) => log::info!("fleet: last restart: {} ({detail})", self.restart.cause),
+            None => log::info!("fleet: last restart: {}", self.restart.cause),
+        }
 
         loop {
-            if !stack.is_config_up() {
-                if must_confirm {
-                    let remaining = HEALTH_CONFIRM_TIMEOUT
-                        .checked_sub(started.elapsed())
-                        .unwrap_or(Duration::from_ticks(0));
-                    if with_timeout(remaining, stack.wait_config_up())
-                        .await
-                        .is_err()
-                    {
-                        self.roll_back("no network after update").await;
-                    }
-                } else {
-                    stack.wait_config_up().await;
+            while !stack.is_config_up() {
+                PULSE.beat_within(NETWORK_WAIT_STEP + CHECKIN_BUDGET);
+                if must_confirm && started.elapsed() > HEALTH_CONFIRM_TIMEOUT {
+                    self.roll_back("no network after update").await;
                 }
+                let _ = with_timeout(NETWORK_WAIT_STEP, stack.wait_config_up()).await;
             }
 
+            PULSE.beat_within(CHECKIN_BUDGET);
             let snapshot = metrics.snapshot();
             match self.checkin(stack, partition, ota_state, &snapshot).await {
                 Ok(reply) => {
@@ -271,6 +282,7 @@ impl Agent {
                 }
             }
 
+            PULSE.beat_within(poll_interval + CHECKIN_BUDGET);
             Timer::after(poll_interval).await;
         }
     }
@@ -294,6 +306,8 @@ impl Agent {
                 .config_v4()
                 .map(|config| config.address.address().octets()),
             last_ota_error: (!self.last_error.is_empty()).then_some(self.last_error.as_str()),
+            reset_reason: self.restart.cause.as_str(),
+            reset_detail: self.restart.detail(),
             metrics,
         };
         let mut body: String<1024> = String::new();
@@ -348,7 +362,7 @@ impl Agent {
                     installed.partition
                 );
                 Timer::after(REBOOT_DELAY).await;
-                esp_hal::system::software_reset();
+                restart::reboot(NoteKind::Update, "");
             }
             Ok(None) => log::info!("fleet: no firmware to download"),
             Err(err) => {
@@ -414,6 +428,7 @@ impl Agent {
                 if count == 0 {
                     break;
                 }
+                PULSE.beat_within(CHECKIN_BUDGET);
                 installer.write_chunk(&read_buffer[..count])?;
             }
             Ok(Some(installer.finish()?))
@@ -429,7 +444,7 @@ impl Agent {
             log::error!("failed to mark the running image invalid: {err}");
         }
         Timer::after(REBOOT_DELAY).await;
-        esp_hal::system::software_reset();
+        restart::reboot(NoteKind::Rollback, reason);
     }
 }
 
