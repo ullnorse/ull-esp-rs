@@ -41,6 +41,22 @@ ull-esp-rs/
 - `ull-esp-core`: hardware-free logic (otadata rules, image header and app descriptor checks, OTA signature verification, HTTP response parsing, the fleet check-in protocol, restart notes). Builds and tests on the host.
 - `ull-esp-platform`: reusable runtime, Wi-Fi, flash, OTA, fleet agent, restart reasons, watchdog, and peripheral helpers for ESP32 projects using Embassy.
 - `ull-esp-board-devkit-v1`: ESP32 DevKit V1 board mapping and convenience helpers built on `ull-esp-platform`.
+- `ull-esp-board-pocket`: ull-pocket (ESP32-C6) pin map, buttons, user LED, charger control, e-paper bus and the board's firmware rules. Not run on hardware yet.
+
+## Chips
+
+`ull-esp-platform` builds for the ESP32 (`esp32` feature) and the ESP32-C6
+(`esp32c6`); each board crate turns on its chip. Build one board's crates at
+a time. ESP32 crates use the default target; ESP32-C6 crates go through the
+aliases in `.cargo/config.toml`, which add `.cargo/esp32c6.toml` (RISC-V
+target, chip revision setting):
+
+```bash
+cargo build --release -p sht3x-ssd1306      # ESP32
+cargo c6-build --release -p pocket-hello    # ESP32-C6
+```
+
+The OTA bootloader in `examples/ota-layout` is built for the ESP32 only.
 
 ## API Direction
 
@@ -94,6 +110,7 @@ Lower-level platform helpers remain available under module-qualified paths such 
 ## Examples
 
 - `examples/blinky`: smallest board smoke test for runtime startup and the status LED.
+- `examples/pocket-hello`: first power-up test for ull-pocket (ESP32-C6): buttons, user LED, USB power and wake lines.
 - `examples/sht3x-ssd1306`: fleet node: SHT3x readings on an SSD1306 and reported to the ull-fleet server, with signed OTA updates.
 - `examples/http-ota`: the fleet agent alone (heartbeats and OTA), no sensors.
 - `examples/ota-layout`: bootloader and partition table for the OTA examples, first-flash and update-image commands, install checks.

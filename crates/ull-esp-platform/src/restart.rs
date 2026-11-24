@@ -88,14 +88,17 @@ fn write_note(words: &[u32; NOTE_WORDS]) {
 }
 
 fn chip_reset() -> ChipReset {
-    match esp_hal::system::reset_reason() {
+    let reason = esp_hal::system::reset_reason();
+    if reason.is_some_and(is_cpu_watchdog) {
+        return ChipReset::Watchdog;
+    }
+    match reason {
         Some(SocResetReason::ChipPowerOn) => ChipReset::PowerOn,
         Some(SocResetReason::CoreSw | SocResetReason::Cpu0Sw) => ChipReset::Software,
         Some(
             SocResetReason::CoreMwdt0
             | SocResetReason::CoreMwdt1
             | SocResetReason::CoreRtcWdt
-            | SocResetReason::CpuMwdt0
             | SocResetReason::Cpu0RtcWdt
             | SocResetReason::SysRtcWdt,
         ) => ChipReset::Watchdog,
@@ -103,4 +106,18 @@ fn chip_reset() -> ChipReset {
         Some(SocResetReason::CoreDeepSleep) => ChipReset::DeepSleep,
         _ => ChipReset::Other,
     }
+}
+
+/// The CPU watchdog reset variants differ between chips.
+#[cfg(feature = "esp32")]
+fn is_cpu_watchdog(reason: SocResetReason) -> bool {
+    matches!(reason, SocResetReason::CpuMwdt0)
+}
+
+#[cfg(not(feature = "esp32"))]
+fn is_cpu_watchdog(reason: SocResetReason) -> bool {
+    matches!(
+        reason,
+        SocResetReason::Cpu0Mwdt0 | SocResetReason::Cpu0Mwdt1 | SocResetReason::SysSuperWdt
+    )
 }

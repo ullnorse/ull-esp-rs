@@ -56,8 +56,15 @@ fn linker_be_nice() {
         std::process::exit(0);
     }
 
+    // Xtensa links through GCC, which takes linker flags behind `-Wl,`;
+    // RISC-V chips link with rust-lld directly.
+    let prefix = if std::env::var("TARGET").is_ok_and(|target| target.starts_with("xtensa")) {
+        "-Wl,"
+    } else {
+        ""
+    };
     println!(
-        "cargo:rustc-link-arg=-Wl,--error-handling-script={}",
+        "cargo:rustc-link-arg={prefix}--error-handling-script={}",
         std::env::current_exe().unwrap().display()
     );
 }

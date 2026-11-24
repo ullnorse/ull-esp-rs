@@ -1,0 +1,23 @@
+[package]
+name = "pocket-hello"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "pocket-hello"
+path = "src/main.rs"
+test = false
+bench = false
+
+[dependencies]
+embassy-executor.workspace = true
+embassy-time.workspace = true
+esp-hal.workspace = true
+esp-rtos.workspace = true
+log.workspace = true
+ull-esp-board-pocket = { path = "../../boards/ull-pocket" }
+ull-esp-platform = { path = "../../crates/ull-esp-platform" }

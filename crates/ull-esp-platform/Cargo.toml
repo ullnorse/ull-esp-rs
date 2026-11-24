@@ -20,6 +20,26 @@ bench = false
 [lints.rust]
 unsafe_code = "deny"
 
+[features]
+esp32 = [
+    "esp-alloc/esp32",
+    "esp-bootloader-esp-idf/esp32",
+    "esp-hal/esp32",
+    "esp-println/esp32",
+    "esp-radio/esp32",
+    "esp-rtos/esp32",
+    "esp-storage/esp32",
+]
+esp32c6 = [
+    "esp-alloc/esp32c6",
+    "esp-bootloader-esp-idf/esp32c6",
+    "esp-hal/esp32c6",
+    "esp-println/esp32c6",
+    "esp-radio/esp32c6",
+    "esp-rtos/esp32c6",
+    "esp-storage/esp32c6",
+]
+
 [dependencies]
 embassy-executor.workspace = true
 embassy-futures.workspace = true

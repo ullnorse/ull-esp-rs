@@ -1,0 +1,13 @@
+# Settings for ESP32-C6 builds, layered over config.toml by the aliases
+# there (run from the workspace root):
+#
+#   cargo c6-build --release -p <crate>
+#   cargo c6-run --release -p <crate>
+#   cargo c6-clippy --release -p <crate>
+
+[build]
+target = "riscv32imac-unknown-none-elf"
+
+[env]
+# esp-hal's default for the C6: runs on every revision.
+ESP_HAL_CONFIG_MIN_CHIP_REVISION = "0"

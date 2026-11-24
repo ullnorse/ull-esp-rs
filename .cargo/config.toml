@@ -5,9 +5,22 @@ rustflags = [
   "-Z", "stack-protector=all",
 ]
 
+[target.riscv32imac-unknown-none-elf]
+runner = "espflash flash --monitor --chip esp32c6"
+rustflags = [
+  "-C", "force-frame-pointers",
+  "-Z", "stack-protector=all",
+]
+
+[alias]
+# ESP32-C6 builds, run from the workspace root: `cargo c6-build --release -p <crate>`.
+c6-build = "build --config .cargo/esp32c6.toml"
+c6-run = "run --config .cargo/esp32c6.toml"
+c6-clippy = "clippy --config .cargo/esp32c6.toml"
+
 [env]
 ESP_LOG = "info"
-# esp-hal 1.2 defaults the ESP32 minimum chip revision to v3.0 (300). The
+# ESP32 builds. esp-hal 1.2 defaults the ESP32 minimum chip revision to v3.0 (300). The
 # DevKit V1 on hand is v1.0, so allow it; this also keeps esp-hal's
 # workarounds for older silicon compiled in.
 ESP_HAL_CONFIG_MIN_CHIP_REVISION = "100"

@@ -1,0 +1,25 @@
+[package]
+name = "ull-esp-board-pocket"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "ull-pocket (ESP32-C6) board mapping and helpers for ull-esp-rs"
+categories = ["embedded", "hardware-support", "no-std"]
+keywords = ["esp32c6", "board", "epaper", "embedded"]
+
+[lib]
+path = "src/lib.rs"
+test = false
+doctest = false
+bench = false
+
+[lints]
+workspace = true
+
+[dependencies]
+embassy-executor.workspace = true
+esp-hal.workspace = true
+ull-esp-platform = { path = "../../crates/ull-esp-platform", features = ["esp32c6"] }
+thiserror.workspace = true

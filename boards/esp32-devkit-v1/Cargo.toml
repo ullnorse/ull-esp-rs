@@ -23,5 +23,5 @@ embassy-executor.workspace = true
 embassy-net.workspace = true
 embassy-time.workspace = true
 esp-hal.workspace = true
-ull-esp-platform = { path = "../../crates/ull-esp-platform" }
+ull-esp-platform = { path = "../../crates/ull-esp-platform", features = ["esp32"] }
 thiserror.workspace = true
